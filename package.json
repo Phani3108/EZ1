@@ -1,0 +1,22 @@
+{
+  "name": "eduzim",
+  "private": true,
+  "scripts": {
+    "dev:admin": "pnpm --filter admin-web dev",
+    "dev:parent": "pnpm --filter parent-web dev",
+    "build": "pnpm -r build",
+    "lint": "pnpm -r lint",
+    "test": "pnpm -r test",
+    "test:frontend": "pnpm --filter admin-web test && pnpm --filter parent-web test"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ]
+  }
+}

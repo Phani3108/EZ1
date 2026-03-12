@@ -1,0 +1,64 @@
+/**
+ * Footer — institutional footer with Zimbabwe identity.
+ * Includes flag stripe, motto, ministry reference, and Vision 2030.
+ */
+
+"use client";
+
+import React from "react";
+import { useTranslations } from "next-intl";
+import { LanguageSwitcher } from "./language-switcher";
+
+/** SVG Zimbabwe flag horizontal stripe (simplified 7-band) */
+function ZimFlagStripe() {
+  return (
+    <div className="flex h-1.5 w-full overflow-hidden" aria-hidden="true">
+      <div className="flex-1 bg-[#008751]" />
+      <div className="flex-1 bg-[#FFD200]" />
+      <div className="flex-1 bg-[#D62828]" />
+      <div className="flex-1 bg-[#1A1A1A]" />
+      <div className="flex-1 bg-[#D62828]" />
+      <div className="flex-1 bg-[#FFD200]" />
+      <div className="flex-1 bg-[#008751]" />
+    </div>
+  );
+}
+
+export function Footer() {
+  const t = useTranslations("footer");
+  const year = new Date().getFullYear();
+
+  return (
+    <footer className="border-t bg-card mt-auto">
+      <ZimFlagStripe />
+      <div className="px-6 lg:px-8 py-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              {t("tagline")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("ministry")}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              {t("vision2030")}
+            </p>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <LanguageSwitcher />
+            <p className="text-xs text-muted-foreground italic">
+              &ldquo;{t("motto")}&rdquo;
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-4 border-t pt-3">
+          <p className="text-xs text-muted-foreground text-center">
+            {t("copyright", { year: String(year) })}
+          </p>
+        </div>
+      </div>
+    </footer>
+  );
+}

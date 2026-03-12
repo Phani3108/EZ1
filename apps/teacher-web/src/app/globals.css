@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* EduZim Design System v1.0 — Teacher (Purple shared, green accent) */
+    --background: 0 0% 99%;
+    --foreground: 220 20% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 220 20% 10%;
+    --primary: 270 51% 36%;          /* #5B2D8A — same deep purple */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 160 100% 26%;       /* Zimbabwe green tint for teacher */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 14% 96%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 160 50% 94%;
+    --accent-foreground: 160 100% 20%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 270 51% 36%;
+    --radius: 0.625rem;              /* 10px base */
+
+    /* Zimbabwe identity accents */
+    --zim-gold: 46 100% 48%;
+    --zim-green: 160 100% 26%;
+    --zim-red: 4 72% 50%;
+  }
+
+  .dark {
+    --background: 224 30% 6%;
+    --foreground: 210 40% 98%;
+    --card: 224 30% 8%;
+    --card-foreground: 210 40% 98%;
+    --primary: 270 62% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 160 60% 35%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 220 18% 14%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 220 18% 14%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 16% 18%;
+    --input: 220 16% 18%;
+    --ring: 270 62% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}

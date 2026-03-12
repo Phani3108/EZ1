@@ -1,0 +1,31 @@
+from pydantic_settings import BaseSettings
+from functools import lru_cache
+
+
+class Settings(BaseSettings):
+    # Database
+    DATABASE_URL: str = "postgresql://eduzim:eduzim_secret@localhost:5432/auth_db"
+
+    # JWT
+    JWT_SECRET_KEY: str = "dev-jwt-secret-change-in-production"
+    JWT_ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+
+    # Kafka
+    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
+    KAFKA_ENABLED: bool = False  # Disable in tests / dev without Kafka
+
+    # App
+    APP_NAME: str = "EduZim Auth Service"
+    SERVICE_NAME: str = "auth-service"
+    DEBUG: bool = False
+
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+
+@lru_cache()
+def get_settings() -> Settings:
+    return Settings()

@@ -1,0 +1,304 @@
+# EduZim — Local Development Stack
+# Usage: docker-compose up -d
+
+version: "3.9"
+
+services:
+  # ============================================================
+  # Infrastructure
+  # ============================================================
+
+  # --- PostgreSQL (per-service databases) ---
+  postgres:
+    image: postgres:16-alpine
+    container_name: eduzim-postgres
+    environment:
+      POSTGRES_USER: eduzim
+      POSTGRES_PASSWORD: eduzim_secret
+      POSTGRES_MULTIPLE_DATABASES: auth_db,school_db,student_db,attendance_db,fees_db,comms_db,reporting_db,assessment_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U eduzim" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduzim-network
+
+  # --- Redis ---
+  redis:
+    image: redis:7-alpine
+    container_name: eduzim-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eduzim-network
+
+  # --- Zookeeper (for Kafka) ---
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.0
+    container_name: eduzim-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+    networks:
+      - eduzim-network
+
+  # --- Kafka ---
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: eduzim-kafka
+    depends_on:
+      zookeeper:
+        condition: service_started
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    ports:
+      - "29092:29092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: [ "CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 || exit 1" ]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+    networks:
+      - eduzim-network
+
+  # ============================================================
+  # Application Services
+  # ============================================================
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: ./services/auth-service/Dockerfile
+    container_name: eduzim-auth
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/auth_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8001:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  school-service:
+    build:
+      context: .
+      dockerfile: ./services/school-service/Dockerfile
+    container_name: eduzim-school
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/school_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_URL: http://auth-service:8000
+      STUDENT_SERVICE_URL: http://student-service:8000
+      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
+    ports:
+      - "8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  student-service:
+    build:
+      context: .
+      dockerfile: ./services/student-service/Dockerfile
+    container_name: eduzim-student
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/student_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_URL: http://auth-service:8000
+    ports:
+      - "8003:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  attendance-service:
+    build:
+      context: .
+      dockerfile: ./services/attendance-service/Dockerfile
+    container_name: eduzim-attendance
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/attendance_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/1
+      AUTH_SERVICE_URL: http://auth-service:8000
+      SCHOOL_SERVICE_URL: http://school-service:8000
+      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
+    ports:
+      - "8004:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  fees-service:
+    build:
+      context: .
+      dockerfile: ./services/fees-service/Dockerfile
+    container_name: eduzim-fees
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/fees_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_URL: http://auth-service:8000
+    ports:
+      - "8005:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  communication-service:
+    build:
+      context: .
+      dockerfile: ./services/communication-service/Dockerfile
+    container_name: eduzim-comms
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/comms_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/2
+      AUTH_SERVICE_URL: http://auth-service:8000
+    ports:
+      - "8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  reporting-service:
+    build:
+      context: .
+      dockerfile: ./services/reporting-service/Dockerfile
+    container_name: eduzim-reporting
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/reporting_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      AUTH_SERVICE_URL: http://auth-service:8000
+      STUDENT_SERVICE_URL: http://student-service:8000
+      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
+      FEES_SERVICE_URL: http://fees-service:8000
+    ports:
+      - "8007:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  assessment-service:
+    build:
+      context: .
+      dockerfile: ./services/assessment-service/Dockerfile
+    container_name: eduzim-assessment
+    environment:
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/assessment_db
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SCHOOL_SERVICE_URL: http://school-service:8000
+      STUDENT_SERVICE_URL: http://student-service:8000
+      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
+    ports:
+      - "8008:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: ./services/api-gateway/Dockerfile
+    container_name: eduzim-gateway
+    environment:
+      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      AUTH_SERVICE_URL: http://auth-service:8000
+      SCHOOL_SERVICE_URL: http://school-service:8000
+      STUDENT_SERVICE_URL: http://student-service:8000
+      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
+      FEES_SERVICE_URL: http://fees-service:8000
+      COMMUNICATION_SERVICE_URL: http://communication-service:8000
+      REPORTING_SERVICE_URL: http://reporting-service:8000
+      ASSESSMENT_SERVICE_URL: http://assessment-service:8000
+      REDIS_URL: redis://redis:6379/3
+      REDIS_ENABLED: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - auth-service
+      - redis
+    networks:
+      - eduzim-network
+
+# ============================================================
+# Volumes & Networks
+# ============================================================
+
+volumes:
+  postgres_data:
+  redis_data:
+  zookeeper_data:
+  kafka_data:
+
+
+networks:
+  eduzim-network:
+    driver: bridge

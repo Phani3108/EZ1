@@ -1,0 +1,37 @@
+{
+  "admin": [
+    "docs/screenshots/admin-01-login.png",
+    "docs/screenshots/admin-02-dashboard.png",
+    "docs/screenshots/admin-03-students.png",
+    "docs/screenshots/admin-04-student-detail.png",
+    "docs/screenshots/admin-05-attendance.png",
+    "docs/screenshots/admin-06-assessments.png",
+    "docs/screenshots/admin-07-fees-invoices.png",
+    "docs/screenshots/admin-08-announcements.png",
+    "docs/screenshots/admin-09-enrollments.png",
+    "docs/screenshots/admin-10-language-switch.png",
+    "docs/screenshots/admin-11-reports.png",
+    "docs/screenshots/admin-12-import.png"
+  ],
+  "parent": [
+    "docs/screenshots/parent-01-login.png",
+    "docs/screenshots/parent-02-home.png",
+    "docs/screenshots/parent-03-attendance.png",
+    "docs/screenshots/parent-04-fees.png",
+    "docs/screenshots/parent-05-announcements.png",
+    "docs/screenshots/parent-06-language-switch.png",
+    "docs/screenshots/parent-07-home-shona.png",
+    "docs/screenshots/parent-08-home-scroll.png"
+  ],
+  "teacher": [
+    "docs/screenshots/teacher-01-login.png",
+    "docs/screenshots/teacher-02-today.png",
+    "docs/screenshots/teacher-03-classes.png",
+    "docs/screenshots/teacher-04-class-detail.png",
+    "docs/screenshots/teacher-05-announcements.png",
+    "docs/screenshots/teacher-06-sync-center.png",
+    "docs/screenshots/teacher-07-language-switch.png",
+    "docs/screenshots/teacher-08-today-shona.png",
+    "docs/screenshots/teacher-09-classes-list.png"
+  ]
+}

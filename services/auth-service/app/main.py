@@ -1,0 +1,39 @@
+from app.config import get_settings
+
+settings = get_settings()
+
+# Use shared app factory
+import sys
+sys.path.insert(0, "../../shared")
+
+try:
+    from eduzim_shared.app_factory import create_app
+    app = create_app(
+        title=settings.APP_NAME,
+        service_name=settings.SERVICE_NAME,
+        description=(
+            "EduZim Auth Service — JWT authentication with access/refresh tokens, "
+            "multi-tenant user management (school_id scoped), RBAC with roles and "
+            "permissions, login audit logging, and Kafka event publishing."
+        ),
+        debug=settings.DEBUG,
+    )
+except ImportError:
+    # Fallback if shared lib not installed
+    from fastapi import FastAPI
+    app = FastAPI(title=settings.APP_NAME, docs_url="/docs", redoc_url="/redoc")
+
+    @app.get("/health", tags=["Health"])
+    def health_check():
+        return {"status": "healthy", "service": settings.SERVICE_NAME}
+
+    @app.get("/", tags=["Health"])
+    def root():
+        return {"service": settings.SERVICE_NAME, "status": "running", "version": "1.0.0"}
+
+# Register routes
+from app.api.auth import router as auth_router
+from app.api.rbac import router as rbac_router
+
+app.include_router(auth_router, prefix="/api/v1")
+app.include_router(rbac_router, prefix="/api/v1")
