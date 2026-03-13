@@ -80,3 +80,48 @@ self.addEventListener("fetch", (event) => {
     )
   );
 });
+
+// ── Background Sync ──
+self.addEventListener("sync", (event) => {
+  if (event.tag === "attendance-sync" || event.tag === "offline-queue") {
+    event.waitUntil(
+      self.clients.matchAll().then((clients) => {
+        for (const client of clients) {
+          client.postMessage({ type: "SYNC_TRIGGER", tag: event.tag });
+        }
+      })
+    );
+  }
+});
+
+// ── Push Notifications ──
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+  try {
+    const data = event.data.json();
+    event.waitUntil(
+      self.registration.showNotification(data.title || "EduZim", {
+        body: data.body || "",
+        icon: "/icons/icon-192x192.png",
+        badge: "/icons/icon-72x72.png",
+        data: data,
+        tag: data.tag || "eduzim-notification",
+      })
+    );
+  } catch (e) {
+    // Ignore malformed push
+  }
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = event.notification.data?.url || "/";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window" }).then((clients) => {
+      for (const client of clients) {
+        if (client.url.includes(url) && "focus" in client) return client.focus();
+      }
+      return self.clients.openWindow(url);
+    })
+  );
+});

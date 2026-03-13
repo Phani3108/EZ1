@@ -288,6 +288,20 @@ services:
     networks:
       - eduzim-network
 
+  notification-worker:
+    build:
+      context: .
+      dockerfile: ./services/notification-worker/Dockerfile
+    container_name: eduzim-notifier
+    environment:
+      COMMS_DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/comms_db
+      AUTH_DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/auth_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
 # ============================================================
 # Volumes & Networks
 # ============================================================

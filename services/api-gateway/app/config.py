@@ -29,7 +29,12 @@ class Settings(BaseSettings):
     # Rate limiting
     DEFAULT_RATE_LIMIT: int = 60       # req/min/user
     SYNC_RATE_LIMIT: int = 30          # req/min/device for attendance sync
+    LOGIN_RATE_LIMIT: int = 5          # req/min/ip for login (brute-force protection)
     RATE_LIMIT_WINDOW: int = 60        # seconds
+
+    # Security
+    ENFORCE_HTTPS: bool = False        # Set True in production
+    HSTS_MAX_AGE: int = 31536000       # 1 year
 
     # Downstream timeouts
     DOWNSTREAM_TIMEOUT: float = 10.0   # seconds

@@ -15,4 +15,6 @@ except ImportError:
         return {"status": "healthy", "service": settings.SERVICE_NAME}
 
 from app.api.routes import router
+from app.api.bulk import router as bulk_router
 app.include_router(router, prefix="/api/v1")
+app.include_router(bulk_router, prefix="/api/v1")

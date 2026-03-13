@@ -255,7 +255,15 @@ async def gateway_proxy(request: Request, full_path: str):
     resp_headers = {
         "X-Request-Id": request_id,
         "X-RateLimit-Remaining": str(rl_remaining),
+        "X-Content-Type-Options": "nosniff",
+        "X-Frame-Options": "DENY",
+        "X-XSS-Protection": "1; mode=block",
+        "Referrer-Policy": "strict-origin-when-cross-origin",
+        "Cache-Control": "no-store",
     }
+
+    if settings.ENFORCE_HTTPS:
+        resp_headers["Strict-Transport-Security"] = f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains"
 
     response_body = result["body"]
 

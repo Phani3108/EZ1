@@ -20,6 +20,15 @@ class Settings(BaseSettings):
     APP_NAME: str = "EduZim Auth Service"
     SERVICE_NAME: str = "auth-service"
     DEBUG: bool = False
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Email (SMTP)
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply@eduzim.co.zw"
+    SMTP_TLS: bool = True
 
     class Config:
         env_file = ".env"

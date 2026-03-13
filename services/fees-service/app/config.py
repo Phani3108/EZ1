@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     APP_NAME: str = "EduZim Fees Service"
     DEBUG: bool = False
 
+    # Paynow Zimbabwe
+    PAYNOW_INTEGRATION_ID: str = ""
+    PAYNOW_INTEGRATION_KEY: str = ""
+    PAYNOW_RESULT_URL: str = "https://api.eduzim.co.zw/api/v1/fees/payments/webhook/paynow"
+    PAYNOW_RETURN_URL: str = "https://admin.eduzim.co.zw/fees/payment-complete"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

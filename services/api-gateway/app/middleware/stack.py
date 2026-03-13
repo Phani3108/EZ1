@@ -159,6 +159,11 @@ def get_rate_limit_key(path: str, user_payload: dict, body: dict = None) -> tupl
     school_id = user_payload.get("school_id", "unknown") if user_payload else "anon"
     user_id = user_payload.get("sub", "unknown") if user_payload else "anon"
 
+    # Login: strict rate limit per IP (brute-force protection)
+    if "/auth/login" in path or "/auth/forgot-password" in path:
+        # Use school_id:anon since we don't have user yet
+        return f"login:{school_id}:{user_id}", settings.LOGIN_RATE_LIMIT, settings.RATE_LIMIT_WINDOW
+
     # Attendance sync: rate limit per device
     if "/attendance/sync" in path and body:
         device_id = body.get("device_id", user_id)
