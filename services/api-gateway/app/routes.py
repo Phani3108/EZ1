@@ -100,6 +100,10 @@ RBAC_MAP = [
     # Assessments
     ("POST", "/api/v1/assessments", "assessment:write"),
     ("GET", "/api/v1/assessments", "assessment:read"),
+
+    # Diagnostics (gateway-local; admin only)
+    ("GET", "/api/v1/diagnostics", "report:admin"),
+    ("POST", "/api/v1/diagnostics", "report:admin"),
 ]
 
 

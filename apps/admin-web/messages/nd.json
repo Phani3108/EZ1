@@ -293,7 +293,16 @@
     "bodyPlaceholder": "Bhala umyalezo wesaziso sakho lapha…",
     "rolePrincipal": "Uthishanhloko",
     "roleTeacher": "Uthisha",
-    "roleParent": "Umzali"
+    "roleParent": "Umzali",
+    "deliveryStats": "Isiqokoqela sokuthumela",
+    "totalDelivered": "Okuthunyelwe",
+    "totalPending": "Okusalindile",
+    "totalFailed": "Okuhlulekile",
+    "byChannel": "Ngendlela",
+    "retry": "Zama futhi",
+    "retrying": "Iyazama futhi…",
+    "retryQueued": "Sekulindile ukuzama futhi.",
+    "retryHint": "Kubuyisela umlayezo esimweni sokulinda ukuze umsebenzi awuthathe futhi."
   },
   "reports": {
     "title": "Imibiko",

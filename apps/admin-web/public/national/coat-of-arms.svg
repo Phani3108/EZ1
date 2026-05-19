@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Zimbabwe coat-of-arms — stylised placeholder.
+  Replace with the official MoPSE-approved emblem before production rollout.
+  Currently a minimalist shield + Zimbabwe Bird, suitable as a watermark.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 240" role="img" aria-label="Zimbabwe coat of arms">
+  <!-- Shield outline -->
+  <path
+    d="M 100 10 L 180 40 L 180 130 Q 180 200 100 230 Q 20 200 20 130 L 20 40 Z"
+    fill="#008751"
+    stroke="#1A1A1A"
+    stroke-width="3"
+  />
+  <!-- Inner gold band -->
+  <path
+    d="M 100 30 L 165 55 L 165 130 Q 165 188 100 215 Q 35 188 35 130 L 35 55 Z"
+    fill="#F5B800"
+    opacity="0.95"
+  />
+  <!-- Zimbabwe Bird silhouette -->
+  <g transform="translate(100 125)" fill="#1A1A1A">
+    <ellipse cx="0" cy="0" rx="30" ry="18"/>
+    <path d="M -10 -8 q 8 -28 28 -16 q -4 12 -10 18 q 10 0 18 -8 q -6 24 -28 28 z"/>
+    <rect x="-5" y="14" width="10" height="32" rx="3"/>
+    <rect x="-22" y="46" width="44" height="6" rx="3"/>
+  </g>
+  <!-- Motto banner -->
+  <rect x="20" y="200" width="160" height="22" rx="3" fill="#FFFFFF" stroke="#1A1A1A" stroke-width="1.5"/>
+  <text x="100" y="216" text-anchor="middle" font-family="serif" font-size="11" font-weight="700" fill="#1A1A1A">
+    UNITY · FREEDOM · WORK
+  </text>
+</svg>

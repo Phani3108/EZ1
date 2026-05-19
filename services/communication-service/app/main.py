@@ -16,3 +16,6 @@ except ImportError:
 
 from app.api.routes import router
 app.include_router(router, prefix="/api/v1")
+
+from app.api.diagnostics import router as diagnostics_router
+app.include_router(diagnostics_router)

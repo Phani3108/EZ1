@@ -15,6 +15,9 @@ import {
   CardTitle,
   Button,
   Badge,
+  FriendlyError,
+  classifyError,
+  type FriendlyErrorCode,
 } from "@eduzim/ui";
 import {
   RefreshCw,
@@ -63,6 +66,20 @@ export default function SyncCenterPage() {
   const { syncStatus, online, retryAll, processQueue, getAllActions, clearSynced, retryOne } = useSync();
   const [actions, setActions] = useState<OfflineAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  /**
+   * Pick the friendliest error code for a failed offline action.
+   * - ATTENDANCE / MARKS sync errors get a domain-specific message.
+   * - Anything else falls back to the generic classifier in @eduzim/ui.
+   */
+  function codeForAction(action: OfflineAction): FriendlyErrorCode | undefined {
+    if (action.status !== "FAILED") return undefined;
+    if (!online) return "NET_OFFLINE";
+    if (action.type === "ATTENDANCE") return "ATTENDANCE_SYNC_FAILED";
+    // Let classifyError inspect status / message and pick a code.
+    return classifyError({ message: action.error });
+  }
 
   const loadActions = async () => {
     try {
@@ -224,9 +241,11 @@ export default function SyncCenterPage() {
                   {actions.map((action) => {
                     const cfg = STATUS_CONFIG[action.status];
                     const Icon = cfg.icon;
+                    const isExpanded = expandedId === action.id;
+                    const friendlyCode = codeForAction(action);
                     return (
+                      <React.Fragment key={action.id}>
                       <tr
-                        key={action.id}
                         className="border-b last:border-0 hover:bg-muted/30"
                       >
                         <td className="px-4 py-3 font-medium">
@@ -252,21 +271,54 @@ export default function SyncCenterPage() {
                           {action.retryCount}
                         </td>
                         <td className="px-4 py-3 text-xs text-red-600 max-w-[200px] truncate">
-                          {action.error || "—"}
+                          {action.error || "\u2014"}
                         </td>
                         <td className="px-4 py-3 text-right">
                           {action.status === "FAILED" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs"
-                              onClick={() => handleRetryOne(action)}
-                            >
-                              Retry
-                            </Button>
+                            <div className="flex justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-7 text-xs"
+                                onClick={() =>
+                                  setExpandedId(isExpanded ? null : action.id)
+                                }
+                              >
+                                {isExpanded ? "Hide help" : "Show help"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs"
+                                onClick={() => handleRetryOne(action)}
+                              >
+                                Retry
+                              </Button>
+                            </div>
                           )}
                         </td>
                       </tr>
+                      {isExpanded && action.status === "FAILED" && (
+                        <tr className="border-b last:border-0 bg-muted/20">
+                          <td colSpan={6} className="px-4 py-3">
+                            <FriendlyError
+                              variant="inline"
+                              code={friendlyCode}
+                              onRetry={() => handleRetryOne(action)}
+                              technical={{
+                                service:
+                                  action.type === "ATTENDANCE"
+                                    ? "attendance-service"
+                                    : action.type === "MARKS"
+                                    ? "assessment-service"
+                                    : "communication-service",
+                                raw: action.error,
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>

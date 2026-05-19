@@ -14,6 +14,7 @@ import {
   reportsApi,
   usersApi,
   assessmentApi,
+  diagnosticsApi,
 } from "@eduzim/api-client";
 import { getAccessToken, setTokens } from "@eduzim/auth";
 
@@ -58,3 +59,4 @@ export const comm = commApi(api);
 export const reports = reportsApi(api);
 export const users = usersApi(api);
 export const assessment = assessmentApi(api);
+export const diagnostics = diagnosticsApi(api);

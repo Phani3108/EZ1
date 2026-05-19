@@ -52,9 +52,13 @@ export function Sidebar() {
       >
         {/* Logo */}
         <div className="flex h-14 items-center border-b px-4">
-          <div className="flex h-8 w-8 items-center justify-center rounded bg-primary text-primary-foreground text-sm font-bold">
-            E
-          </div>
+          <img
+            src="/national/coat-of-arms.svg"
+            alt="Zimbabwe coat of arms"
+            className="h-8 w-8"
+            width={32}
+            height={32}
+          />
           {!collapsed && (
             <span className="ml-2 text-lg font-semibold">EduZim</span>
           )}

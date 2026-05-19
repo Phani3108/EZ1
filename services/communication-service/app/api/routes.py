@@ -141,3 +141,73 @@ def get_outbox(request: Request, status: str = Query(None),
                school_id: uuid.UUID = Depends(get_school_id)):
     svc = CommunicationService(db)
     return {"data": svc.get_outbox(school_id, status, announcement_id), "meta": _meta(request)}
+
+
+@router.get("/comm/outbox/stats")
+def outbox_stats(request: Request,
+                 db: Session = Depends(get_db),
+                 school_id: uuid.UUID = Depends(get_school_id)):
+    """
+    Roll-up of the school's outbox so admin Notification Center can
+    show a single dashboard line ("3 failed, 12 pending, 4,210 delivered").
+    """
+    from sqlalchemy import func
+    from app.models.communication import NotificationOutbox
+
+    rows = (
+        db.query(NotificationOutbox.status, NotificationOutbox.channel,
+                 func.count(NotificationOutbox.id))
+        .filter(NotificationOutbox.school_id == school_id)
+        .group_by(NotificationOutbox.status, NotificationOutbox.channel)
+        .all()
+    )
+    totals: dict[str, int] = {}
+    by_channel: dict[str, dict[str, int]] = {}
+    for status, channel, count in rows:
+        totals[status] = totals.get(status, 0) + int(count)
+        by_channel.setdefault(channel, {})[status] = int(count)
+
+    return {
+        "data": {
+            "totals": totals,
+            "by_channel": by_channel,
+        },
+        "meta": _meta(request),
+    }
+
+
+@router.post("/comm/outbox/{entry_id}/retry")
+def retry_outbox_entry(entry_id: uuid.UUID, request: Request,
+                       db: Session = Depends(get_db),
+                       school_id: uuid.UUID = Depends(get_school_id)):
+    """
+    Reset a FAILED outbox row back to PENDING so the worker picks it up
+    again on its next sweep. Admin-curated retry.
+    """
+    from app.models.communication import NotificationOutbox
+
+    entry = (
+        db.query(NotificationOutbox)
+        .filter(
+            NotificationOutbox.id == entry_id,
+            NotificationOutbox.school_id == school_id,
+        )
+        .first()
+    )
+    if not entry:
+        return _err("NOT_FOUND", "Outbox entry not found.", request), 404
+    if entry.status not in ("FAILED",):
+        return _err(
+            "INVALID_STATE",
+            f"Only FAILED entries can be retried (current status: {entry.status}).",
+            request,
+        ), 422
+
+    entry.status = "PENDING"
+    entry.retry_count = 0
+    entry.error_message = None
+    db.commit()
+    return {
+        "data": {"id": str(entry.id), "status": entry.status, "retried": True},
+        "meta": _meta(request),
+    }

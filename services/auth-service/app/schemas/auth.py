@@ -133,3 +133,34 @@ class PermissionResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- User Preferences ---
+from typing import Literal
+
+Language = Literal["en", "sn", "nd"]
+ThemePref = Literal["joyful", "focus", "sovereign"]
+TextSize = Literal["sm", "md", "lg", "xl"]
+
+
+class UserPreferencesResponse(BaseModel):
+    """Per-user accessibility, locale and theme preferences."""
+    language: Language = "en"
+    theme_pref: ThemePref = "focus"
+    text_size: TextSize = "md"
+    high_contrast: bool = False
+    read_aloud_enabled: bool = False
+    reduced_motion: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+class UserPreferencesUpdate(BaseModel):
+    """Patch payload — all fields optional."""
+    language: Optional[Language] = None
+    theme_pref: Optional[ThemePref] = None
+    text_size: Optional[TextSize] = None
+    high_contrast: Optional[bool] = None
+    read_aloud_enabled: Optional[bool] = None
+    reduced_motion: Optional[bool] = None

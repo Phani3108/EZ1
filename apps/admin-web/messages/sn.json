@@ -293,7 +293,16 @@
     "bodyPlaceholder": "Nyora mashoko eziviso rako pano…",
     "rolePrincipal": "Mukuru",
     "roleTeacher": "Mudzidzisi",
-    "roleParent": "Mubereki"
+    "roleParent": "Mubereki",
+    "deliveryStats": "Mhedzisiro yokutumira",
+    "totalDelivered": "Zvatumwa",
+    "totalPending": "Zvichakamirira",
+    "totalFailed": "Zvakundikana",
+    "byChannel": "Nenzira",
+    "retry": "Edza zvakare",
+    "retrying": "Tichiyedza zvakare…",
+    "retryQueued": "Yagadzirirwa kuyedza zvakare.",
+    "retryHint": "Inodzosera meseji panzvimbo yokumirira kuti mushandi aitorezve."
   },
   "reports": {
     "title": "Zvinyorwa",

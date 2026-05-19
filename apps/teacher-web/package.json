@@ -14,6 +14,7 @@
     "@eduzim/api-client": "workspace:*",
     "@eduzim/auth": "workspace:*",
     "@eduzim/offline-core": "workspace:*",
+    "@eduzim/themes": "workspace:*",
     "@eduzim/ui": "workspace:*",
     "@hookform/resolvers": "^3.3.0",
     "clsx": "^2.1.0",

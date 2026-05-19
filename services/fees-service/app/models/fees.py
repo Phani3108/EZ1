@@ -88,3 +88,56 @@ class Payment(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     invoice = relationship("Invoice", back_populates="payments")
+
+
+class PaymentTransaction(Base):
+    """
+    Tracks a single Paynow (or other gateway) attempt against an invoice.
+
+    Lifecycle:
+      INITIATED → SENT      — gateway accepted the request, user redirected
+                 → FAILED   — gateway rejected (config/network/validation)
+      SENT      → PAID      — webhook confirmed payment (Payment row created)
+                 → CANCELLED, FAILED, EXPIRED — terminal failure states
+
+    The `reference` column is the unique merchant reference we send to Paynow
+    (`EDU-<inv8>-<rand6>`). Webhooks come back keyed on that reference, which
+    is how we look the transaction up. `paynow_reference` is the gateway's
+    own ID, returned in the webhook + poll response.
+    """
+    __tablename__ = "payment_transactions"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    school_id = Column(UUID(as_uuid=True), nullable=False, index=True)
+    invoice_id = Column(UUID(as_uuid=True), ForeignKey("invoices.id", ondelete="CASCADE"),
+                        nullable=False, index=True)
+    payment_id = Column(UUID(as_uuid=True), ForeignKey("payments.id", ondelete="SET NULL"),
+                        nullable=True, index=True)
+
+    provider = Column(String(50), nullable=False, default="PAYNOW")
+    method = Column(String(50), nullable=False)  # ECOCASH | ONEMONEY | TELECASH | MUKURU | BANK
+    reference = Column(String(64), nullable=False, unique=True, index=True)
+    paynow_reference = Column(String(255), nullable=True, index=True)
+    poll_url = Column(String(512), nullable=True)
+    instructions = Column(String(512), nullable=True)
+
+    amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(3), nullable=False, default="USD")
+    phone = Column(String(20), nullable=True)
+
+    # INITIATED | SENT | PAID | CANCELLED | FAILED | EXPIRED
+    status = Column(String(20), nullable=False, default="INITIATED", index=True)
+    last_error = Column(String(512), nullable=True)
+
+    # Idempotency: if the gateway retries the webhook for the same payment,
+    # we recognise it via the (reference, paynow_reference, amount) tuple
+    # and skip the second insert. Stored explicitly for auditability.
+    idempotency_key = Column(String(255), nullable=True, unique=True)
+
+    initiated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+    invoice = relationship("Invoice")
+    payment = relationship("Payment")

@@ -127,6 +127,12 @@ async def prometheus_metrics():
                              media_type="text/plain; charset=utf-8")
 
 
+# ───────────── Gateway-local routes (must be registered BEFORE the catch-all) ─────────────
+from app.api.diagnostics import router as diagnostics_router
+
+app.include_router(diagnostics_router, prefix="/api/v1")
+
+
 # ───────────── Gateway Catch-All ─────────────
 
 @app.api_route("/api/v1/{full_path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
@@ -144,6 +150,11 @@ async def gateway_proxy(request: Request, full_path: str):
 
     # 1. Request ID
     request_id = extract_request_id(dict(request.headers))
+
+    # 1b. Save-Data — propagate downstream so services can return slim payloads.
+    # Header is a low-cost UX signal: when the client opts in (or the OS reports
+    # a metered connection) we want every microservice in the chain to know.
+    save_data = request.headers.get("save-data", "").strip().lower() == "on"
 
     # 2. Auth
     auth_header = request.headers.get("authorization", "")
@@ -260,7 +271,12 @@ async def gateway_proxy(request: Request, full_path: str):
         "X-XSS-Protection": "1; mode=block",
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Cache-Control": "no-store",
+        # Save-Data: caches must vary on this header so a low-bandwidth response
+        # is never served to a regular client (and vice-versa).
+        "Vary": "Save-Data, Accept-Encoding, Accept-Language",
     }
+    if save_data:
+        resp_headers["X-Save-Data"] = "on"
 
     if settings.ENFORCE_HTTPS:
         resp_headers["Strict-Transport-Security"] = f"max-age={settings.HSTS_MAX_AGE}; includeSubDomains"

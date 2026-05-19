@@ -13,6 +13,31 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     MAX_RETRY_COUNT: int = 3
 
+    # ─── Provider credentials (delivery channels) ───
+    # Africa's Talking — SMS
+    AFRICASTALKING_API_KEY: str = ""
+    AFRICASTALKING_USERNAME: str = "sandbox"
+    AFRICASTALKING_SENDER: str = "EduZim"
+
+    # SMTP — Email
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = "noreply@eduzim.co.zw"
+
+    # Firebase Cloud Messaging — Push
+    FCM_SERVER_KEY: str = ""
+
+    # Meta WhatsApp Business Cloud API
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    WHATSAPP_ACCESS_TOKEN: str = ""
+    WHATSAPP_VERIFY_TOKEN: str = ""
+
+    # Outbox lag thresholds (used by diagnostics deep-probe)
+    OUTBOX_LAG_DEGRADED_MINUTES: int = 5
+    OUTBOX_LAG_DOWN_MINUTES: int = 30
+
     class Config:
         env_file = ".env"
         case_sensitive = True

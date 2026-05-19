@@ -185,12 +185,51 @@ function route(method: string, path: string, params?: Record<string, string>, bo
     if (p === "/api/v1/fees/payments") return ok(mock.MOCK_PAYMENTS);
     if (p === "/api/v1/fees/defaulters") return ok(mock.MOCK_DEFAULTERS);
 
+    // Paynow — payment initiate + status polling
+    if (p === "/api/v1/fees/payments/initiate" && method === "POST") {
+        const ref = `EDU-MOCK-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+        return ok({
+            transaction_ref: ref,
+            status: "PENDING",
+            poll_url: "",
+            instructions: "Demo mode: no real payment was triggered. In production, the parent would receive a USSD prompt on their phone.",
+            demo_mode: true,
+        });
+    }
+    if (p.match(/^\/api\/v1\/fees\/payments\/[\w-]+\/status$/) && method === "GET") {
+        const ref = p.split("/")[5];
+        return ok({
+            transaction_ref: ref,
+            status: "PAID",
+            paynow_reference: "PNW-MOCK-001",
+            amount: 50,
+            currency: "USD",
+            method: "ECOCASH",
+            instructions: "Demo mode — auto-marked PAID after 1 poll.",
+            last_error: null,
+            initiated_at: new Date(Date.now() - 5000).toISOString(),
+            confirmed_at: new Date().toISOString(),
+        });
+    }
+
     // Communication
     if (p === "/api/v1/comm/announcements" && method === "GET") return ok(mock.MOCK_ANNOUNCEMENTS);
     if (p === "/api/v1/comm/announcements" && method === "POST") return ok({ announcement: mock.MOCK_ANNOUNCEMENTS[0], outbox_created: 3, recipient_count: 20, channels: ["SMS", "EMAIL"] });
     if (p === "/api/v1/comm/feed") return ok(mock.MOCK_ANNOUNCEMENTS);
     if (p.match(/^\/api\/v1\/comm\/announcements\/[\w-]+$/) && method === "DELETE") return ok(mock.MOCK_ANNOUNCEMENTS[0]);
     if (p === "/api/v1/comm/outbox") return ok(mock.MOCK_OUTBOX);
+    if (p === "/api/v1/comm/outbox/stats") return ok({
+        totals: { DELIVERED: 4210, PENDING: 12, FAILED: 3, SENT: 0 },
+        by_channel: {
+            SMS: { DELIVERED: 1850, PENDING: 8, FAILED: 2 },
+            EMAIL: { DELIVERED: 2102, PENDING: 3, FAILED: 1 },
+            IN_APP: { DELIVERED: 258, PENDING: 1 },
+        },
+    });
+    if (p.match(/^\/api\/v1\/comm\/outbox\/[\w-]+\/retry$/) && method === "POST") {
+        const id = p.split("/")[5];
+        return ok({ id, status: "PENDING", retried: true });
+    }
 
     // Reports
     if (p === "/api/v1/reports/dashboard") return ok(mock.MOCK_DASHBOARD);
@@ -224,6 +263,26 @@ function route(method: string, path: string, params?: Record<string, string>, bo
     if (p.match(/^\/api\/v1\/assessments\/[\w-]+$/)) {
         const id = p.split("/").pop()!;
         return ok(mock.MOCK_ASSESSMENT_DETAILS.find((a) => a.id === id) || mock.MOCK_ASSESSMENT_DETAILS[0]);
+    }
+
+    // Diagnostics
+    if (p === "/api/v1/diagnostics/services") return ok({ integrations: mock.MOCK_INTEGRATIONS });
+    if (p.match(/^\/api\/v1\/diagnostics\/probe\/[\w-]+$/) && method === "POST") {
+        const id = p.split("/").pop()!;
+        const summary = mock.MOCK_INTEGRATIONS.find((i) => i.id === id);
+        if (id === "fees-service") return ok(mock.MOCK_INTEGRATION_PROBE);
+        return ok({
+            id,
+            label: summary?.label ?? id,
+            category: summary?.category ?? "core",
+            description: summary?.description ?? "",
+            status: summary?.status ?? "ok",
+            deep_probe: false,
+            message: "Deep probe not implemented yet — showing a quick health check instead.",
+            checks: [
+                { id: "health", label: "Service health", status: summary?.status ?? "ok", latency_ms: summary?.latency_ms, detail: "Service responded to /health." },
+            ],
+        });
     }
 
     // Fallback — return empty data

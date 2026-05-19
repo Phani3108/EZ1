@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stylised province map of Zimbabwe. The ProvinceMap component prefers
+  a tile-grid for v1; this SVG is provided for static reference views
+  (proposal exports, PDFs). Each <path> has an `id` matching the
+  ProvinceId values exposed by the component.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 320" role="img" aria-label="Zimbabwe provinces (stylised)">
+  <style>
+    .p { fill: #E5E7EB; stroke: #1A1A1A; stroke-width: 1; }
+    .lbl { font-family: 'Inter', sans-serif; font-size: 9px; font-weight: 600; fill: #1A1A1A; }
+  </style>
+  <!-- Stylised tiles arranged roughly geographically -->
+  <rect id="mashonaland-west"    class="p" x="120" y="40"  width="90" height="60"/>
+  <rect id="mashonaland-central" class="p" x="210" y="40"  width="90" height="60"/>
+  <rect id="harare"              class="p" x="180" y="100" width="50" height="40"/>
+  <rect id="mashonaland-east"    class="p" x="230" y="100" width="90" height="60"/>
+  <rect id="manicaland"          class="p" x="290" y="160" width="80" height="70"/>
+  <rect id="matabeleland-north"  class="p" x="30"  y="80"  width="90" height="80"/>
+  <rect id="bulawayo"            class="p" x="60"  y="160" width="50" height="30"/>
+  <rect id="midlands"            class="p" x="120" y="100" width="60" height="120"/>
+  <rect id="masvingo"            class="p" x="180" y="160" width="110" height="70"/>
+  <rect id="matabeleland-south"  class="p" x="30"  y="190" width="90" height="80"/>
+
+  <text class="lbl" x="165" y="75">Mash West</text>
+  <text class="lbl" x="255" y="75">Mash Central</text>
+  <text class="lbl" x="205" y="125">Harare</text>
+  <text class="lbl" x="275" y="135">Mash East</text>
+  <text class="lbl" x="330" y="200">Manicaland</text>
+  <text class="lbl" x="75"  y="125">Mat North</text>
+  <text class="lbl" x="85"  y="180">Bulawayo</text>
+  <text class="lbl" x="150" y="165">Midlands</text>
+  <text class="lbl" x="235" y="200">Masvingo</text>
+  <text class="lbl" x="75"  y="235">Mat South</text>
+</svg>

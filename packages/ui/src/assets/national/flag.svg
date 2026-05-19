@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Zimbabwe national flag — simplified vector for in-app use.
+  Based on the official flag of Zimbabwe (7 horizontal stripes, white
+  triangle at hoist with red star and Zimbabwe Bird silhouette).
+  This file is bundled with the app, no remote fetch ever.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 420" role="img" aria-label="Flag of Zimbabwe">
+  <!-- 7 horizontal stripes: green / yellow / red / black / red / yellow / green -->
+  <rect width="840" height="60" y="0"   fill="#008751"/>
+  <rect width="840" height="60" y="60"  fill="#F5B800"/>
+  <rect width="840" height="60" y="120" fill="#D62828"/>
+  <rect width="840" height="60" y="180" fill="#1A1A1A"/>
+  <rect width="840" height="60" y="240" fill="#D62828"/>
+  <rect width="840" height="60" y="300" fill="#F5B800"/>
+  <rect width="840" height="60" y="360" fill="#008751"/>
+
+  <!-- White triangle at hoist -->
+  <polygon points="0,0 336,210 0,420" fill="#FFFFFF"/>
+  <!-- Inner black outline of the triangle for the canton -->
+  <polygon points="0,30 290,210 0,390" fill="#1A1A1A" opacity="0"/>
+
+  <!-- Red five-pointed star -->
+  <g transform="translate(120 210)">
+    <polygon
+      points="0,-70 16,-22 66,-22 25,8 41,56 0,28 -41,56 -25,8 -66,-22 -16,-22"
+      fill="#D62828"
+    />
+    <!-- Zimbabwe Bird silhouette (simplified) -->
+    <path
+      d="M -6 -2 q 6 -16 18 -8 q -2 8 -6 12 q 6 0 12 -4 q -4 14 -16 16 q -4 8 -10 8 q -8 0 -10 -8 q -10 -4 -8 -16 q 6 0 10 4 q 0 -10 4 -16 q 6 6 6 12 z"
+      fill="#F5B800"
+      transform="scale(0.85)"
+    />
+  </g>
+</svg>

@@ -6,6 +6,7 @@
     "dev:parent": "pnpm --filter parent-web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
+    "lint:theme-bleed": "bash scripts/check-theme-bleed.sh",
     "test": "pnpm -r test",
     "test:frontend": "pnpm --filter admin-web test && pnpm --filter parent-web test"
   },

@@ -124,5 +124,27 @@
     "term": "Term",
     "termPlaceholder": "Select term",
     "allTerms": "All Terms"
+  },
+  "parent": {
+    "home": {
+      "greetingMorning": "Good morning, {name} 🌅",
+      "greetingAfternoon": "Good afternoon, {name} ☀️",
+      "greetingEvening": "Good evening, {name} 🌙",
+      "subtitle": "Here's how your family is doing today.",
+      "yourChildren": "Your children",
+      "noChildren": "No children linked yet — your school will add them soon.",
+      "attendanceToday": "Today",
+      "feesDue": "Fees due",
+      "newMessages": "New messages",
+      "viewChild": "See details",
+      "readAloud": "Read this aloud"
+    },
+    "status": {
+      "present": "At school",
+      "absent": "Not at school",
+      "late": "Arrived late",
+      "excused": "Excused",
+      "unknown": "Not marked yet"
+    }
   }
 }

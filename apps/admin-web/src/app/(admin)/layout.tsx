@@ -20,11 +20,19 @@ export default function AdminLayout({
 
   return (
     <RouteGuard onUnauthenticated={() => router.replace("/login")}>
-      <div className="flex min-h-screen">
-        <Sidebar />
-        <div className="flex flex-1 flex-col lg:ml-64 min-h-screen">
-          <main className="flex-1 px-6 lg:px-8 py-6">{children}</main>
-          <Footer />
+      <div className="flex min-h-screen flex-col">
+        {/* Zimbabwe flag stripe — sovereign theme signature across all admin pages */}
+        <div
+          aria-hidden="true"
+          className="h-1.5 w-full shrink-0"
+          style={{ background: "var(--zim-flag-gradient)" }}
+        />
+        <div className="flex flex-1">
+          <Sidebar />
+          <div className="flex flex-1 flex-col lg:ml-64 min-h-screen">
+            <main className="flex-1 px-6 lg:px-8 py-6">{children}</main>
+            <Footer />
+          </div>
         </div>
       </div>
     </RouteGuard>

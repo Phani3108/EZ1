@@ -14,6 +14,7 @@ import { Home, ClipboardCheck, DollarSign, Megaphone, LogOut, WifiOff } from "lu
 import { Footer } from "@/components/footer";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { OfflineProvider, useOffline } from "@/lib/offline-provider";
+import { ReadAloudProvider } from "@/components/read-aloud-provider";
 
 const parentNav = [
   { title: "Home", href: "/home", icon: Home },
@@ -32,13 +33,15 @@ export default function ParentLayout({
   return (
     <RouteGuard onUnauthenticated={() => router.replace("/login")}>
       <OfflineProvider>
-        <div className="flex min-h-screen flex-col">
-          <TopNav />
-          <OfflineBanner />
-          <main className="flex-1 px-4 md:px-6 py-4 md:py-6">{children}</main>
-          <Footer />
-          <BottomNav />
-        </div>
+        <ReadAloudProvider>
+          <div className="flex min-h-screen flex-col">
+            <TopNav />
+            <OfflineBanner />
+            <main className="flex-1 px-4 md:px-6 py-4 md:py-6">{children}</main>
+            <Footer />
+            <BottomNav />
+          </div>
+        </ReadAloudProvider>
       </OfflineProvider>
     </RouteGuard>
   );

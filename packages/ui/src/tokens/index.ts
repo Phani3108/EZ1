@@ -98,3 +98,33 @@ export const transitions = {
   normal: "200ms ease",
   slow: "300ms ease",
 } as const;
+
+// ─── Kid Scale (joyful theme) ───
+// Generous sizing for early readers, low-literacy users and small fingers.
+export const kidScale = {
+  touchTarget: "min-h-[48px] min-w-[48px]",
+  buttonHeight: "h-14",                 // 56px primary buttons
+  iconSize: "h-8 w-8",                  // 32px default
+  iconSizeLg: "h-12 w-12",              // 48px hero
+  cardPadding: "p-6 sm:p-8",
+  cardRadius: "rounded-2xl",            // 16px+
+  bodyText: "text-[16px] leading-[1.6]",
+  headingText: "text-[26px] leading-[1.3] font-extrabold tracking-tight",
+  gap: "gap-5",
+} as const;
+
+// ─── Pride Accents (sovereign theme) ───
+// Zimbabwe-flag-aware utility classes for the admin/ministry surfaces.
+export const prideAccents = {
+  flagStripe:
+    "[background:var(--zim-flag-gradient)] h-1.5 w-full",
+  flagStripeThick:
+    "[background:var(--zim-flag-gradient)] h-3 w-full",
+  watermarkCoatOfArms: "zim-watermark",
+  headerAccentBar:
+    "before:content-[''] before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-[hsl(var(--zim-green))]",
+} as const;
+
+// ─── Persona theme names (kept here for runtime checks) ───
+export const PERSONA_THEMES = ["joyful", "focus", "sovereign"] as const;
+export type PersonaThemeName = (typeof PERSONA_THEMES)[number];

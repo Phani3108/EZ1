@@ -158,18 +158,62 @@ class AuthService:
         self.db.commit()
 
     def get_me(self, user_id: uuid.UUID) -> dict:
-        """Return current user profile with expanded permissions."""
+        """Return current user profile with expanded permissions + preferences."""
+        from app.models.user import UserPreference  # local import avoids cycles
+
         user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             return None
+
+        # Inline preference lookup. If absent, expose role-defaulted values
+        # without persisting — first PATCH will materialise the row.
+        pref = (
+            self.db.query(UserPreference)
+            .filter(UserPreference.user_id == user.id)
+            .first()
+        )
+        role_names = [r.name for r in user.roles]
+        if pref is None:
+            # Mirror _default_theme_for_roles from app/api/preferences.py
+            tier_map = {
+                "parent": "joyful", "student": "joyful", "guardian": "joyful",
+                "teacher": "focus", "head_teacher": "focus",
+                "admin": "sovereign", "school_admin": "sovereign",
+                "ministry": "sovereign", "provincial_coordinator": "sovereign",
+            }
+            tiers = {tier_map.get(r) for r in role_names}
+            theme = "sovereign" if "sovereign" in tiers else (
+                "focus" if "focus" in tiers else (
+                    "joyful" if "joyful" in tiers else "focus"
+                )
+            )
+            preferences = {
+                "language": "en",
+                "theme_pref": theme,
+                "text_size": "lg" if theme == "joyful" else "md",
+                "high_contrast": False,
+                "read_aloud_enabled": theme == "joyful",
+                "reduced_motion": False,
+            }
+        else:
+            preferences = {
+                "language": pref.language,
+                "theme_pref": pref.theme_pref,
+                "text_size": pref.text_size,
+                "high_contrast": pref.high_contrast,
+                "read_aloud_enabled": pref.read_aloud_enabled,
+                "reduced_motion": pref.reduced_motion,
+            }
+
         return {
             "id": str(user.id),
             "email": user.email,
             "full_name": user.full_name,
             "school_id": str(user.school_id),
             "is_active": user.is_active,
-            "roles": [r.name for r in user.roles],
+            "roles": role_names,
             "permissions": self._expand_permissions(user),
+            "preferences": preferences,
         }
 
     # ───────────────── User CRUD ─────────────────

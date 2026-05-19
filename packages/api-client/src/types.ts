@@ -54,6 +54,15 @@ export interface LoginData {
   user: UserBrief;
 }
 
+export interface UserPreferences {
+  language: "en" | "sn" | "nd";
+  theme_pref: "joyful" | "focus" | "sovereign";
+  text_size: "sm" | "md" | "lg" | "xl";
+  high_contrast: boolean;
+  read_aloud_enabled: boolean;
+  reduced_motion: boolean;
+}
+
 export interface MeData {
   id: string;
   email: string;
@@ -62,6 +71,7 @@ export interface MeData {
   is_active: boolean;
   roles: string[];
   permissions: string[];
+  preferences: UserPreferences;
 }
 
 // ─── School / Academics ───
@@ -487,4 +497,90 @@ export interface BulkMarksRequest {
     is_absent: boolean;
     remarks?: string;
   }[];
+}
+
+// ─── Diagnostics ───
+
+export type IntegrationCategory =
+  | "core"
+  | "payments"
+  | "messaging"
+  | "reporting"
+  | "assessment";
+
+export type IntegrationStatus =
+  | "ok"
+  | "degraded"
+  | "down"
+  | "not_configured"
+  | "unknown";
+
+export interface IntegrationCheck {
+  id: string;
+  label: string;
+  status: IntegrationStatus;
+  detail?: string;
+  latency_ms?: number;
+  http_status?: number;
+  error?: string;
+  [key: string]: unknown;
+}
+
+export interface IntegrationSummary {
+  id: string;
+  label: string;
+  category: IntegrationCategory | string;
+  description: string;
+  status: IntegrationStatus;
+  latency_ms?: number;
+  http_status?: number;
+  message?: string;
+  deep_probe?: boolean;
+}
+
+export interface IntegrationProbeResult extends IntegrationSummary {
+  deep_probe: boolean;
+  checks?: IntegrationCheck[];
+}
+
+// ─── Paynow / Payments ───
+
+export type PaynowMethod = "ECOCASH" | "ONEMONEY" | "MUKURU" | "TELECASH" | "BANK";
+
+export type PaynowTxnStatus =
+  | "INITIATED"
+  | "SENT"
+  | "PENDING"
+  | "PAID"
+  | "CANCELLED"
+  | "FAILED"
+  | "EXPIRED";
+
+export interface PaynowInitiateResult {
+  transaction_ref: string;
+  status: "PENDING";
+  poll_url: string;
+  instructions: string;
+  demo_mode: boolean;
+}
+
+export interface PaymentTransactionStatus {
+  transaction_ref: string;
+  status: PaynowTxnStatus;
+  paynow_reference?: string | null;
+  amount: number;
+  currency: string;
+  method: PaynowMethod;
+  instructions?: string | null;
+  last_error?: string | null;
+  initiated_at?: string | null;
+  confirmed_at?: string | null;
+}
+
+// ─── Notification outbox ───
+
+export interface OutboxStats {
+  totals: Record<string, number>;          // { PENDING: 3, DELIVERED: 4210, FAILED: 2, SENT: 0 }
+  by_channel: Record<string, Record<string, number>>;
+  // e.g. { SMS: { PENDING: 1, FAILED: 1 }, EMAIL: { DELIVERED: 4210 } }
 }

@@ -1,0 +1,93 @@
+/**
+ * joyful theme — parent-web + student surfaces ONLY
+ * --------------------------------------------------
+ * Kid-friendly, bright pastels, large touch targets, Nunito font.
+ * Light-only by policy (dark mode is confusing for early readers).
+ *
+ * HARD RULE: this theme MUST NOT be imported by teacher-web or admin-web.
+ * A CI lint rule rejects `joyful-*` classnames outside parent-web.
+ */
+:root {
+  /* Surface — warm off-white */
+  --background: 40 60% 99%;
+  --foreground: 220 25% 18%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 25% 18%;
+
+  /* Brand — Zimbabwe green leads, sunshine yellow supports */
+  --primary: 160 75% 32%;            /* friendly green, slightly desaturated */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 46 100% 60%;          /* sunshine yellow */
+  --secondary-foreground: 30 60% 15%;
+
+  /* Functional — soft, never harsh */
+  --muted: 40 40% 96%;
+  --muted-foreground: 220 15% 40%;
+  --accent: 200 90% 92%;             /* sky blue tint for highlights */
+  --accent-foreground: 200 80% 20%;
+  --destructive: 4 75% 55%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 40 30% 88%;
+  --input: 40 30% 88%;
+  --ring: 160 75% 32%;
+
+  /* Pastel palette (used by JoyfulCard variants) */
+  --joyful-pink: 340 85% 92%;
+  --joyful-peach: 25 100% 90%;
+  --joyful-mint: 160 60% 90%;
+  --joyful-sky: 200 90% 92%;
+  --joyful-lavender: 270 60% 92%;
+  --joyful-sunshine: 46 100% 88%;
+
+  /* Emoji status (paired with text — never colour-only) */
+  --status-present: 145 65% 42%;
+  --status-absent: 4 75% 55%;
+  --status-late: 38 95% 55%;
+
+  /* Geometry — generous, rounded */
+  --radius: 1rem;                    /* 16px base, very rounded */
+
+  /* Persona meta */
+  --persona: "joyful";
+  --base-text-size: 1.125rem;        /* lg — easier for early readers */
+  --touch-target-min: 48px;
+
+  /* Zimbabwe accents present but quiet on joyful */
+  --zim-gold: 46 100% 48%;
+  --zim-green: 160 100% 26%;
+  --zim-red: 4 72% 50%;
+}
+
+/* Joyful never goes dark — light-only by policy. */
+.dark {
+  /* deliberately empty: dark mode disabled for joyful */
+}
+
+/* Larger default body text + comfortable line-height for low-literacy readers. */
+@layer base {
+  html {
+    font-size: var(--base-text-size);
+  }
+  body {
+    line-height: 1.6;
+  }
+
+  h1, h2, h3 {
+    font-weight: 800;
+    letter-spacing: -0.01em;
+  }
+
+  /* Bigger focus rings — kids' usability research */
+  *:focus-visible {
+    outline: 3px solid hsl(var(--ring));
+    outline-offset: 3px;
+  }
+}
+
+/* Honour reduced motion globally for the joyful theme. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}

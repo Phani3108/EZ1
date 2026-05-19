@@ -124,5 +124,27 @@
     "term": "Ithemu",
     "termPlaceholder": "Khetha ithemu",
     "allTerms": "Yonke Imithemu"
+  },
+  "parent": {
+    "home": {
+      "greetingMorning": "Livukile, {name} 🌅",
+      "greetingAfternoon": "Litshonile, {name} ☀️",
+      "greetingEvening": "Lihlalile, {name} 🌙",
+      "subtitle": "Nansi indlela imuli yakho eqhubeka ngayo lamuhla.",
+      "yourChildren": "Abantwana bakho",
+      "noChildren": "Akulabantwana abaxhumiweyo okwakhathesi — isikolo sizabengeza maduze.",
+      "attendanceToday": "Lamuhla",
+      "feesDue": "Imali yesikolo",
+      "newMessages": "Imibiko emitsha",
+      "viewChild": "Bona okunengi",
+      "readAloud": "Lalela ilizwi"
+    },
+    "status": {
+      "present": "Basesikolo",
+      "absent": "Abekho esikolweni",
+      "late": "Bafike sekuphuzile",
+      "excused": "Baxolelwe",
+      "unknown": "Akukabhalwa"
+    }
   }
 }

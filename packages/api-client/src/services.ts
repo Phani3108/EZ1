@@ -9,6 +9,7 @@ import type {
   LoginRequest,
   LoginData,
   MeData,
+  UserPreferences,
   AcademicYear,
   Term,
   SchoolClass,
@@ -30,6 +31,7 @@ import type {
   Defaulter,
   Announcement,
   OutboxEntry,
+  OutboxStats,
   DashboardData,
   AttendanceTrendPoint,
   FinancialSummaryData,
@@ -46,6 +48,8 @@ import type {
   ClassPerformance,
   CreateAssessmentRequest,
   BulkMarksRequest,
+  PaynowInitiateResult,
+  PaymentTransactionStatus,
 } from "./types";
 
 // ─── Auth ───
@@ -57,6 +61,12 @@ export function authApi(client: ApiClient) {
     },
     me() {
       return client.get<MeData>("/api/v1/auth/me");
+    },
+    getPreferences() {
+      return client.get<UserPreferences>("/api/v1/me/preferences");
+    },
+    updatePreferences(data: Partial<UserPreferences>) {
+      return client.patch<UserPreferences>("/api/v1/me/preferences", data);
     },
     refresh() {
       return client.post<LoginData>("/api/v1/auth/refresh", {});
@@ -286,6 +296,22 @@ export function feesApi(client: ApiClient) {
     listDefaulters(params?: Record<string, string>) {
       return client.get<Defaulter[]>("/api/v1/fees/defaulters", params);
     },
+    initiatePaynow(data: {
+      invoice_id: string;
+      amount: number;
+      method: "ECOCASH" | "ONEMONEY" | "MUKURU" | "TELECASH" | "BANK";
+      phone: string;
+      return_url?: string;
+    }) {
+      return client.post<PaynowInitiateResult>(
+        "/api/v1/fees/payments/initiate", data,
+      );
+    },
+    paymentStatus(transactionRef: string) {
+      return client.get<PaymentTransactionStatus>(
+        `/api/v1/fees/payments/${encodeURIComponent(transactionRef)}/status`,
+      );
+    },
   };
 }
 
@@ -307,6 +333,15 @@ export function commApi(client: ApiClient) {
     },
     listOutbox(params?: Record<string, string>) {
       return client.get<OutboxEntry[]>("/api/v1/comm/outbox", params);
+    },
+    outboxStats() {
+      return client.get<OutboxStats>("/api/v1/comm/outbox/stats");
+    },
+    retryOutboxEntry(id: string) {
+      return client.post<{ id: string; status: string; retried: boolean }>(
+        `/api/v1/comm/outbox/${encodeURIComponent(id)}/retry`,
+        {},
+      );
     },
   };
 }
@@ -415,6 +450,28 @@ export function assessmentApi(client: ApiClient) {
       return client.get<ClassPerformance>(
         `/api/v1/assessments/classes/${classId}/performance`,
         params as Record<string, string>
+      );
+    },
+  };
+}
+
+// ─── Diagnostics API ───
+
+import type { IntegrationSummary, IntegrationProbeResult } from "./types";
+
+export function diagnosticsApi(client: ApiClient) {
+  return {
+    /** List every known integration + a quick health-check status. */
+    listServices() {
+      return client.get<{ integrations: IntegrationSummary[] }>(
+        "/api/v1/diagnostics/services"
+      );
+    },
+    /** Run a deep probe against one integration (admin-triggered "Run Test"). */
+    probe(integrationId: string) {
+      return client.post<IntegrationProbeResult>(
+        `/api/v1/diagnostics/probe/${integrationId}`,
+        {}
       );
     },
   };

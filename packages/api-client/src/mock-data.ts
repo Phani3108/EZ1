@@ -449,22 +449,41 @@ export const MOCK_CLASS_PERFORMANCE: ClassPerformance = {
 
 // ─── Auth — role-based MOCK_ME per user type ───
 
+const MOCK_PREFS_SOVEREIGN = {
+    language: "en" as const, theme_pref: "sovereign" as const,
+    text_size: "md" as const, high_contrast: false,
+    read_aloud_enabled: false, reduced_motion: false,
+};
+const MOCK_PREFS_FOCUS = {
+    language: "en" as const, theme_pref: "focus" as const,
+    text_size: "md" as const, high_contrast: false,
+    read_aloud_enabled: false, reduced_motion: false,
+};
+const MOCK_PREFS_JOYFUL = {
+    language: "en" as const, theme_pref: "joyful" as const,
+    text_size: "lg" as const, high_contrast: false,
+    read_aloud_enabled: true, reduced_motion: false,
+};
+
 const MOCK_ME_ADMIN: MeData = {
     id: "usr-001", email: "admin@eduzim.com", full_name: "Administrator — Harare Central",
     school_id: SCHOOL_ID, is_active: true,
     roles: ["SchoolAdmin"], permissions: ["*"],
+    preferences: MOCK_PREFS_SOVEREIGN,
 };
 
 const MOCK_ME_TEACHER: MeData = {
     id: "usr-002", email: "teacher@eduzim.com", full_name: "Takesure Moyo",
     school_id: SCHOOL_ID, is_active: true,
     roles: ["Teacher"], permissions: ["attendance:read", "attendance:write", "assessment:read", "assessment:write", "student:read", "comm:read"],
+    preferences: MOCK_PREFS_FOCUS,
 };
 
 const MOCK_ME_PARENT: MeData = {
     id: "usr-003", email: "parent@eduzim.com", full_name: "Grace Moyo",
     school_id: SCHOOL_ID, is_active: true,
     roles: ["Parent"], permissions: ["student:read", "fees:read", "comm:read"],
+    preferences: MOCK_PREFS_JOYFUL,
 };
 
 export function getMockMeForUser(email: string): MeData {
@@ -487,3 +506,32 @@ export function getMockLoginForUser(email: string): LoginData {
 export const MOCK_ME = MOCK_ME_ADMIN;
 export const MOCK_LOGIN = getMockLoginForUser("admin@eduzim.com");
 
+
+// ─── Diagnostics ───
+import type { IntegrationSummary, IntegrationProbeResult } from "./types";
+
+export const MOCK_INTEGRATIONS: IntegrationSummary[] = [
+  { id: "auth-service",     label: "Authentication",        category: "core",       description: "User login, JWT, password resets",                 status: "ok",             latency_ms: 18 },
+  { id: "school-service",   label: "Schools & Classes",     category: "core",       description: "Schools, classes, subjects, academic years",      status: "ok",             latency_ms: 23 },
+  { id: "student-service",  label: "Students & Enrollments", category: "core",       description: "Student records and enrollments",                  status: "ok",             latency_ms: 31 },
+  { id: "attendance-service", label: "Attendance",           category: "core",       description: "Daily attendance + offline sync",                 status: "ok",             latency_ms: 27 },
+  { id: "fees-service",     label: "Fees & Paynow",         category: "payments",   description: "Invoicing, receipts and Paynow payments",         status: "not_configured", message: "Paynow keys are not set." },
+  { id: "communication-service", label: "Messaging (SMS, WhatsApp, Email)", category: "messaging", description: "Announcements and parent messaging", status: "degraded",       latency_ms: 412, message: "SMS provider responded slowly." },
+  { id: "reporting-service", label: "Reports & Intelligence", category: "reporting", description: "Dashboards, rollups and dropout-risk reports",   status: "ok",             latency_ms: 44 },
+  { id: "assessment-service", label: "Assessments",          category: "assessment", description: "Quizzes, tests and marks entry",                  status: "ok",             latency_ms: 35 },
+];
+
+export const MOCK_INTEGRATION_PROBE: IntegrationProbeResult = {
+  id: "fees-service",
+  label: "Fees & Paynow",
+  category: "payments",
+  description: "Invoicing, receipts and Paynow payments",
+  status: "not_configured",
+  deep_probe: true,
+  message: "Some checks need attention.",
+  checks: [
+    { id: "database",         label: "Database connection",    status: "ok",             latency_ms: 9,   detail: "Connected to Postgres and ran a test query." },
+    { id: "paynow_config",    label: "Paynow credentials",     status: "not_configured", detail: "Paynow keys are not set. Payments cannot be processed until an administrator adds them." },
+    { id: "paynow_reachable", label: "Paynow service reachable", status: "ok",           latency_ms: 285, detail: "Reached https://www.paynow.co.zw (HTTP 200)." },
+  ],
+};

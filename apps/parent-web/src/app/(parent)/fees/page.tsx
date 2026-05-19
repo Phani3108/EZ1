@@ -5,11 +5,12 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@eduzim/ui";
-import { Receipt, Loader2, AlertCircle, ChevronDown, CheckCircle, Clock, XCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle, Button } from "@eduzim/ui";
+import { Receipt, Loader2, AlertCircle, ChevronDown, CheckCircle, Clock, XCircle, CreditCard } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { student, fees } from "@/lib/api";
 import type { Student, Invoice } from "@eduzim/api-client";
+import { PayInvoiceDialog } from "@/components/pay-invoice-dialog";
 
 const STATUS_STYLES: Record<string, string> = {
   PAID: "bg-green-50 text-green-700 ring-1 ring-green-200",
@@ -35,12 +36,15 @@ export default function ParentFeesPage() {
   const [selectedChildId, setSelectedChildId] = useState<string>("");
   const childId = selectedChildId || children?.[0]?.id || "";
 
+  const [payInvoice, setPayInvoice] = useState<Invoice | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+
   const { data: invoices, isLoading: loadingInvoices, error } = useApiQuery<Invoice[]>(
     () => {
       if (!childId) return Promise.resolve({ data: [] });
       return fees.listInvoices({ student_id: childId });
     },
-    [childId],
+    [childId, refreshKey],
   );
 
   const child = useMemo(() => (children ?? []).find((c) => c.id === childId), [children, childId]);
@@ -146,6 +150,16 @@ export default function ParentFeesPage() {
                           {STATUS_ICONS[inv.status]}
                           {inv.status}
                         </span>
+                        {inv.balance > 0 && (
+                          <Button
+                            size="sm"
+                            onClick={() => setPayInvoice(inv)}
+                            aria-label={`Pay invoice ${inv.id}`}
+                          >
+                            <CreditCard className="h-4 w-4" />
+                            Pay
+                          </Button>
+                        )}
                       </div>
                     </li>
                   ))}
@@ -161,6 +175,14 @@ export default function ParentFeesPage() {
             <p className="mt-1 text-xs text-blue-600">Reference your invoice number when making payments.</p>
           </div>
         </>
+      )}
+
+      {payInvoice && (
+        <PayInvoiceDialog
+          invoice={payInvoice}
+          onClose={() => setPayInvoice(null)}
+          onPaid={() => setRefreshKey((k) => k + 1)}
+        />
       )}
     </div>
   );

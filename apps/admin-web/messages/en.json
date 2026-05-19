@@ -293,7 +293,16 @@
     "bodyPlaceholder": "Write your announcement message here…",
     "rolePrincipal": "Principal",
     "roleTeacher": "Teacher",
-    "roleParent": "Parent"
+    "roleParent": "Parent",
+    "deliveryStats": "Delivery overview",
+    "totalDelivered": "Delivered",
+    "totalPending": "Waiting to send",
+    "totalFailed": "Failed",
+    "byChannel": "By channel",
+    "retry": "Retry",
+    "retrying": "Retrying…",
+    "retryQueued": "Queued for another attempt.",
+    "retryHint": "Resets this message to pending so the worker picks it up again."
   },
   "reports": {
     "title": "Reports",

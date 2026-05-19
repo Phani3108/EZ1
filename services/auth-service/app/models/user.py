@@ -127,3 +127,33 @@ class LoginAudit(Base):
     user_agent = Column(Text, nullable=True)
     failure_reason = Column(String(255), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class UserPreference(Base):
+    """
+    Per-user accessibility, locale and theme preferences.
+
+    `theme_pref` is server-validated against the user's role so a parent
+    cannot escape into the sovereign (admin) theme by spoofing this field.
+    A row is created lazily on first PATCH; defaults are derived from the
+    user's roles at read time.
+    """
+    __tablename__ = "user_preferences"
+
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    language = Column(String(8), nullable=False, default="en")          # en | sn | nd
+    theme_pref = Column(String(16), nullable=False, default="focus")    # joyful | focus | sovereign
+    text_size = Column(String(4), nullable=False, default="md")         # sm | md | lg | xl
+    high_contrast = Column(Boolean, nullable=False, default=False)
+    read_aloud_enabled = Column(Boolean, nullable=False, default=False)
+    reduced_motion = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )

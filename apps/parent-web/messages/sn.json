@@ -124,5 +124,27 @@
     "term": "Temu",
     "termPlaceholder": "Sarudza temu",
     "allTerms": "Matemu Ose"
+  },
+  "parent": {
+    "home": {
+      "greetingMorning": "Mangwanani, {name} 🌅",
+      "greetingAfternoon": "Masikati, {name} ☀️",
+      "greetingEvening": "Manheru, {name} 🌙",
+      "subtitle": "Heano zviri kuitika nhasi pamhuri yenyu.",
+      "yourChildren": "Vana venyu",
+      "noChildren": "Hapana vana vakabatanidzwa — chikoro chichabatanidza nokukurumidza.",
+      "attendanceToday": "Nhasi",
+      "feesDue": "Mari yechikoro",
+      "newMessages": "Mameseji matsva",
+      "viewChild": "Ona zvakawanda",
+      "readAloud": "Inzwa izwi"
+    },
+    "status": {
+      "present": "Vari kuchikoro",
+      "absent": "Havasi kuchikoro",
+      "late": "Vakanonoka",
+      "excused": "Vakaregererwa",
+      "unknown": "Haisati yanyorwa"
+    }
   }
 }

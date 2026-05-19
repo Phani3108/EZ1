@@ -20,6 +20,7 @@ import {
   BarChart3,
   Landmark,
   ClipboardList,
+  ServerCog,
   type LucideIcon,
 } from "lucide-react";
 
@@ -105,5 +106,16 @@ export const adminNav: NavItem[] = [
     href: "/national-alignment",
     icon: Landmark,
     permission: "authenticated",
+  },
+
+  // ─── System ───
+  {
+    title: "System",
+    href: "/integrations",
+    icon: ServerCog,
+    permission: "report:admin",
+    children: [
+      { title: "Integrations", href: "/integrations", permission: "report:admin" },
+    ],
   },
 ];

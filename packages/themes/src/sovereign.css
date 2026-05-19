@@ -1,0 +1,98 @@
+/**
+ * sovereign theme — admin-web + ministry-web
+ * -------------------------------------------
+ * Zimbabwe national pride. Flag palette (green/yellow/red/black) on white.
+ * BI density, formal typography. Dual light/dark mode for projector ops.
+ *
+ * Primary surfaces remain dignified; flag accents appear as headers,
+ * watermarks, and stripe rules — never as page backgrounds.
+ */
+:root {
+  /* Surface */
+  --background: 0 0% 99%;
+  --foreground: 220 20% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 20% 10%;
+
+  /* Brand — Zimbabwe green is the lead colour */
+  --primary: 160 100% 26%;           /* Zimbabwe green #008751 */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 46 100% 48%;          /* Zimbabwe gold #F5B800 */
+  --secondary-foreground: 0 0% 10%;
+
+  /* Functional */
+  --muted: 220 14% 96%;
+  --muted-foreground: 220 9% 46%;
+  --accent: 160 50% 94%;             /* soft green tint */
+  --accent-foreground: 160 100% 20%;
+  --destructive: 4 72% 50%;          /* Zimbabwe red */
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 13% 91%;
+  --input: 220 13% 91%;
+  --ring: 160 100% 26%;
+
+  /* Geometry */
+  --radius: 0.5rem;                  /* 8px — slightly tighter for BI density */
+
+  /* Zimbabwe identity accents (used directly by sovereign components) */
+  --zim-gold: 46 100% 48%;
+  --zim-green: 160 100% 26%;
+  --zim-red: 4 72% 50%;
+  --zim-black: 220 20% 10%;
+
+  /* Flag stripe gradient (FlagHeader) */
+  --zim-flag-gradient: linear-gradient(
+    to right,
+    hsl(160 100% 26%) 0%,
+    hsl(160 100% 26%) 25%,
+    hsl(46 100% 48%) 25%,
+    hsl(46 100% 48%) 50%,
+    hsl(4 72% 50%) 50%,
+    hsl(4 72% 50%) 75%,
+    hsl(220 20% 10%) 75%,
+    hsl(220 20% 10%) 100%
+  );
+
+  /* Persona meta */
+  --persona: "sovereign";
+  --base-text-size: 1rem;
+  --touch-target-min: 44px;
+}
+
+.dark {
+  --background: 220 25% 7%;
+  --foreground: 210 40% 98%;
+  --card: 220 25% 10%;
+  --card-foreground: 210 40% 98%;
+  --primary: 160 60% 45%;
+  --primary-foreground: 0 0% 10%;
+  --secondary: 46 80% 55%;
+  --secondary-foreground: 0 0% 10%;
+  --muted: 220 18% 14%;
+  --muted-foreground: 215 15% 65%;
+  --accent: 160 40% 20%;
+  --accent-foreground: 160 50% 90%;
+  --destructive: 4 65% 50%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 220 16% 18%;
+  --input: 220 16% 18%;
+  --ring: 160 60% 45%;
+}
+
+/* Coat-of-arms watermark utility — applied to MinistryStatCard etc. */
+.zim-watermark {
+  position: relative;
+  isolation: isolate;
+}
+.zim-watermark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("/national/coat-of-arms.svg");
+  background-repeat: no-repeat;
+  background-position: right -20px bottom -20px;
+  background-size: 140px;
+  opacity: 0.04;
+  pointer-events: none;
+  z-index: -1;
+}

@@ -16,5 +16,9 @@ except ImportError:
 
 from app.api.routes import router
 from app.api.payments import router as payments_router
+from app.api.diagnostics import router as diagnostics_router
 app.include_router(router, prefix="/api/v1")
 app.include_router(payments_router, prefix="/api/v1")
+# NOTE: diagnostics is mounted WITHOUT the /api/v1 prefix because the gateway
+# blocks any external `/internal/*` traffic. Only the gateway can call it.
+app.include_router(diagnostics_router)
