@@ -64,24 +64,25 @@
 }
 
 /* Larger default body text + comfortable line-height for low-literacy readers. */
-@layer base {
-  html {
-    font-size: var(--base-text-size);
-  }
-  body {
-    line-height: 1.6;
-  }
+/* NOTE: emitted at top-level (not wrapped in @layer base) so that this file can
+   be `@import`-ed before the consumer's @tailwind directives have registered
+   the `base` layer (required by Next.js 15.5+ PostCSS pipeline). */
+html {
+  font-size: var(--base-text-size);
+}
+body {
+  line-height: 1.6;
+}
 
-  h1, h2, h3 {
-    font-weight: 800;
-    letter-spacing: -0.01em;
-  }
+h1, h2, h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
 
-  /* Bigger focus rings — kids' usability research */
-  *:focus-visible {
-    outline: 3px solid hsl(var(--ring));
-    outline-offset: 3px;
-  }
+/* Bigger focus rings — kids' usability research */
+*:focus-visible {
+  outline: 3px solid hsl(var(--ring));
+  outline-offset: 3px;
 }
 
 /* Honour reduced motion globally for the joyful theme. */
