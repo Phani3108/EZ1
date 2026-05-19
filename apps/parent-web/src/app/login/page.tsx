@@ -20,12 +20,27 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 // Pre-production: allow exploration without credentials.
-const GUEST_EMAIL = "parent@eduzim.com";
-const GUEST_PASSWORD = "123456";
+const GUEST_USER = {
+  id: "guest-parent",
+  email: "guest-parent@eduzim.com",
+  full_name: "Guest Parent",
+  school_id: "school-1",
+  is_active: true,
+  roles: ["parent"],
+  permissions: ["*"],
+  preferences: {
+    language: "en" as const,
+    theme_pref: "joyful" as const,
+    text_size: "md" as const,
+    high_contrast: false,
+    read_aloud_enabled: false,
+    reduced_motion: false,
+  },
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
   const [guestSubmitting, setGuestSubmitting] = useState(false);
 
@@ -49,18 +64,11 @@ export default function LoginPage() {
     }
   };
 
-  const onContinueAsGuest = async () => {
+  const onContinueAsGuest = () => {
     setServerError(null);
     setGuestSubmitting(true);
-    try {
-      const { data } = await auth.login({ email: GUEST_EMAIL, password: GUEST_PASSWORD });
-      await login(data);
-      router.replace("/home");
-    } catch {
-      setServerError("Could not start guest session. Please try again.");
-    } finally {
-      setGuestSubmitting(false);
-    }
+    loginAsGuest(GUEST_USER);
+    router.replace("/home");
   };
 
   return (

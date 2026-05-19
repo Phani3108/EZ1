@@ -21,6 +21,34 @@ import React, {
 import type { MeData, LoginData } from "@eduzim/api-client";
 import { setTokens, clearTokens, getAccessToken } from "./tokens";
 
+// ─── Guest mode (pre-production exploration) ─────────────────────────────
+// When the user clicks "Continue as Guest", we bypass the API entirely and
+// hydrate the AuthProvider with a synthetic MeData. A small marker is kept
+// in sessionStorage so that the session survives page reloads even when no
+// backend is reachable.
+
+const GUEST_STORAGE_KEY = "eduzim_guest_user";
+
+function readStoredGuest(): MeData | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(GUEST_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as MeData) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredGuest(user: MeData | null) {
+  if (typeof window === "undefined") return;
+  try {
+    if (user) sessionStorage.setItem(GUEST_STORAGE_KEY, JSON.stringify(user));
+    else sessionStorage.removeItem(GUEST_STORAGE_KEY);
+  } catch {
+    /* storage unavailable */
+  }
+}
+
 // ─── Types ───
 
 export interface AuthState {
@@ -28,6 +56,11 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (data: LoginData) => Promise<void>;
+  /**
+   * Pre-production helper: hydrate auth state from a synthetic MeData payload
+   * without contacting the API. Persisted in sessionStorage so reloads work.
+   */
+  loginAsGuest: (user: MeData) => void;
   logout: () => void;
   hasPermission: (perm: string) => boolean;
   hasAnyPermission: (...perms: string[]) => boolean;
@@ -60,6 +93,13 @@ export function AuthProvider({
   // On mount, attempt to restore session via refresh-token cookie
   const loadUser = useCallback(async () => {
     setIsLoading(true);
+    // Guest session takes priority and is fully offline.
+    const guest = readStoredGuest();
+    if (guest) {
+      setUser(guest);
+      setIsLoading(false);
+      return;
+    }
     try {
       const tokenData = await refreshTokens();
       if (tokenData) {
@@ -87,8 +127,19 @@ export function AuthProvider({
     [fetchMe]
   );
 
+  const loginAsGuest = useCallback((guestUser: MeData) => {
+    // Synthetic short-lived in-memory token; satisfies any code that calls
+    // getAccessToken() while in guest mode. Real API calls will still fail —
+    // that is acceptable because guest mode is for UI exploration only.
+    setTokens("guest-mode-token", 60 * 60);
+    writeStoredGuest(guestUser);
+    setUser(guestUser);
+    setIsLoading(false);
+  }, []);
+
   const logout = useCallback(() => {
     clearTokens();
+    writeStoredGuest(null);
     setUser(null);
     onLogout?.();
   }, [onLogout]);
@@ -118,12 +169,13 @@ export function AuthProvider({
       isAuthenticated: !!user,
       isLoading,
       login,
+      loginAsGuest,
       logout,
       hasPermission,
       hasAnyPermission,
       hasRole,
     }),
-    [user, isLoading, login, logout, hasPermission, hasAnyPermission, hasRole]
+    [user, isLoading, login, loginAsGuest, logout, hasPermission, hasAnyPermission, hasRole]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
