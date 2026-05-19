@@ -312,6 +312,16 @@ export function feesApi(client: ApiClient) {
         `/api/v1/fees/payments/${encodeURIComponent(transactionRef)}/status`,
       );
     },
+    // PDF helpers — return the absolute URL so consumers can `window.open`.
+    // The endpoint streams `application/pdf` with `Content-Disposition: inline`.
+    invoicePdfUrl(invoiceId: string, baseUrl?: string) {
+      const base = baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
+      return `${base}/api/v1/fees/invoices/${encodeURIComponent(invoiceId)}/pdf`;
+    },
+    paymentReceiptUrl(paymentId: string, baseUrl?: string) {
+      const base = baseUrl ?? (typeof window !== "undefined" ? window.location.origin : "");
+      return `${base}/api/v1/fees/payments/${encodeURIComponent(paymentId)}/receipt`;
+    },
   };
 }
 

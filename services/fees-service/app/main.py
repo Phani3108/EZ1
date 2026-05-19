@@ -14,6 +14,7 @@ except ImportError:
     def health():
         return {"status": "healthy", "service": settings.SERVICE_NAME}
 
+from app import models as _models  # noqa: F401  ensures Base.metadata sees every table
 from app.api.routes import router
 from app.api.payments import router as payments_router
 from app.api.diagnostics import router as diagnostics_router

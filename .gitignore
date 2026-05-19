@@ -48,3 +48,9 @@ npm-debug.log*
 
 # Node modules (pnpm)
 node_modules/
+
+# SQLite test artifacts
+*.db
+*.db-shm
+*.db-wal
+test_*.db*

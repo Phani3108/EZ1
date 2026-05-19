@@ -73,11 +73,21 @@ class MockSMSProvider:
 
 class CommunicationService:
     def __init__(self, db: Session, audience_resolver: AudienceResolver = None,
-                 sms_provider: SMSProvider = None, max_retries: int = 3):
+                 sms_provider: SMSProvider = None, max_retries: int = 3,
+                 whatsapp_provider=None, user_phone_resolver=None):
         self.db = db
         self.audience_resolver = audience_resolver or MockAudienceResolver()
         self.sms_provider = sms_provider or MockSMSProvider()
         self.max_retries = max_retries
+        # Lazy import — keeps the module import-cycle free.
+        if whatsapp_provider is None:
+            from app.services.whatsapp_provider import get_provider as _wa
+            self.whatsapp_provider = _wa()
+        else:
+            self.whatsapp_provider = whatsapp_provider
+        # `user_phone_resolver(user_id) -> phone:str|None` — in production wired
+        # to student-service; tests inject a dict-backed callable.
+        self.user_phone_resolver = user_phone_resolver or (lambda _uid: None)
 
     # ───────────── Announcements ─────────────
 
@@ -253,7 +263,51 @@ class CommunicationService:
             ).first()
             msg = f"{announcement.title}: {announcement.body}" if announcement else ""
             return self.sms_provider.send(str(entry.user_id), msg)
+        elif entry.channel == "WHATSAPP":
+            return self._send_whatsapp(entry)
         return False
+
+    def _send_whatsapp(self, entry: NotificationOutbox) -> bool:
+        """Hand a WhatsApp outbox entry to the provider and record the wamid."""
+        from app.models.whatsapp import WhatsAppMessage
+
+        announcement = self.db.query(Announcement).filter(
+            Announcement.id == entry.announcement_id,
+        ).first()
+        if not announcement:
+            entry.error_message = "Announcement not found for outbox entry"
+            return False
+
+        phone = self.user_phone_resolver(str(entry.user_id))
+        if not phone:
+            entry.error_message = "Recipient has no WhatsApp number on file"
+            return False
+
+        body = f"*{announcement.title}*\n\n{announcement.body}"
+        ok, payload = self.whatsapp_provider.send_text(phone, body)
+
+        wamid = None
+        if ok:
+            try:
+                wamid = payload["messages"][0]["id"]
+            except (KeyError, IndexError, TypeError):
+                wamid = None
+
+        # Always create an audit row so retries don't fork into ghosts.
+        wa = WhatsAppMessage(
+            school_id=entry.school_id,
+            outbox_id=entry.id,
+            to_phone=phone,
+            provider_message_id=wamid,
+            body_preview=body[:500],
+        )
+        if not ok:
+            err = (payload or {}).get("error", {}) if isinstance(payload, dict) else {}
+            wa.error_code = str(err.get("code", "send_failed"))[:64]
+            wa.error_message = str(err.get("message", "WhatsApp send failed"))[:1000]
+            entry.error_message = wa.error_message
+        self.db.add(wa)
+        return ok
 
     # ───────────── Serializers ─────────────
 

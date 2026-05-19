@@ -19,3 +19,10 @@ app.include_router(router, prefix="/api/v1")
 
 from app.api.diagnostics import router as diagnostics_router
 app.include_router(diagnostics_router)
+
+from app.api.whatsapp_webhook import router as whatsapp_router
+app.include_router(whatsapp_router, prefix="/api/v1")
+
+# Make sure the WhatsApp model is registered with Base before any
+# `create_all` (used by tests and dev bootstraps) sweeps the metadata.
+from app.models import whatsapp as _whatsapp_models  # noqa: F401

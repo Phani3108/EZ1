@@ -5,12 +5,14 @@ from decimal import Decimal
 from typing import Optional, List
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_school_id
 from app.services.fees_service import FeesService
+from app.services.pdf_renderer import build_invoice_pdf, build_receipt_pdf
 from app.events import publish_event
 
 router = APIRouter(tags=["Fees"])
@@ -113,6 +115,46 @@ def get_invoice(invoice_id: uuid.UUID, request: Request,
     return {"data": result, "meta": _meta(request)}
 
 
+@router.get("/fees/invoices/{invoice_id}/pdf")
+def get_invoice_pdf(invoice_id: uuid.UUID, request: Request,
+                    db: Session = Depends(get_db),
+                    school_id: uuid.UUID = Depends(get_school_id)):
+    """Render an invoice as a printable PDF.
+
+    The endpoint resolves the invoice's fee-structure line items so the
+    document mirrors what parents would see in the portal.
+    """
+    from app.models.fees import FeeStructure
+    from fastapi.responses import JSONResponse
+
+    svc = FeesService(db)
+    invoice = svc.get_invoice(invoice_id, school_id)
+    if not invoice:
+        return JSONResponse(
+            status_code=404,
+            content=_err("NOT_FOUND", "Invoice not found", request),
+        )
+
+    fs = db.query(FeeStructure).filter(
+        FeeStructure.id == uuid.UUID(invoice["fee_structure_id"]),
+    ).first()
+    line_items = (
+        [{"label": item.label, "amount": float(item.amount)} for item in fs.items]
+        if fs else None
+    )
+
+    pdf = build_invoice_pdf(invoice=invoice, line_items=line_items)
+    filename = f"invoice-{invoice['id'][:8]}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "X-Request-Id": _meta(request)["request_id"],
+        },
+    )
+
+
 # ───── Payments ─────
 
 @router.post("/fees/payments")
@@ -139,6 +181,45 @@ def list_payments(request: Request, invoice_id: uuid.UUID = Query(None),
                   school_id: uuid.UUID = Depends(get_school_id)):
     svc = FeesService(db)
     return {"data": svc.list_payments(school_id, invoice_id), "meta": _meta(request)}
+
+
+@router.get("/fees/payments/{payment_id}/receipt")
+def get_payment_receipt_pdf(payment_id: uuid.UUID, request: Request,
+                            db: Session = Depends(get_db),
+                            school_id: uuid.UUID = Depends(get_school_id)):
+    """Render a printable receipt PDF for a recorded payment."""
+    from app.models.fees import Payment
+    from fastapi.responses import JSONResponse
+
+    payment = db.query(Payment).filter(
+        Payment.id == payment_id,
+        Payment.school_id == school_id,
+    ).first()
+    if not payment:
+        return JSONResponse(
+            status_code=404,
+            content=_err("NOT_FOUND", "Payment not found", request),
+        )
+
+    svc = FeesService(db)
+    invoice = svc.get_invoice(payment.invoice_id, school_id)
+    if not invoice:
+        return JSONResponse(
+            status_code=404,
+            content=_err("NOT_FOUND", "Linked invoice not found", request),
+        )
+
+    payment_dict = svc._ser_payment(payment)
+    pdf = build_receipt_pdf(payment=payment_dict, invoice=invoice)
+    filename = f"receipt-{payment_dict['id'][:8]}.pdf"
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "X-Request-Id": _meta(request)["request_id"],
+        },
+    )
 
 
 # ───── Defaulters ─────

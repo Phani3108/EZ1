@@ -38,6 +38,8 @@ from app.database import get_db
 from app.dependencies import get_current_user, get_school_id
 from app.config import get_settings
 from app.models.fees import PaymentTransaction
+from app.models.idempotency import IdempotencyKey
+from eduzim_shared.idempotency import DbIdempotencyStore
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
@@ -196,6 +198,19 @@ def initiate_payment(
     """Initiate a mobile money payment for an invoice."""
     from app.services.fees_service import FeesService
 
+    # Honour Idempotency-Key header so a retry of the same logical request
+    # returns the original response instead of creating a duplicate
+    # PaymentTransaction row.
+    idem_header = request.headers.get("Idempotency-Key") or request.headers.get("idempotency-key")
+    idem_store: Optional[DbIdempotencyStore] = None
+    idem_key: Optional[str] = None
+    if idem_header:
+        idem_key = f"fees:initiate:{school_id}:{idem_header}"
+        idem_store = DbIdempotencyStore(db, IdempotencyKey)
+        if idem_store.is_duplicate(idem_key):
+            cached = idem_store.get_cached_response(idem_key) or {}
+            return {"data": cached, "meta": {**_meta(request), "idempotent_replay": True}}
+
     svc = FeesService(db)
 
     invoice = svc.get_invoice(data.invoice_id, school_id)
@@ -233,16 +248,16 @@ def initiate_payment(
             "Configure Paynow credentials to process real transactions."
         )
         db.commit()
-        return {
-            "data": {
-                "transaction_ref": txn_ref,
-                "status": "PENDING",
-                "poll_url": "",
-                "instructions": txn.instructions,
-                "demo_mode": True,
-            },
-            "meta": _meta(request),
+        payload = {
+            "transaction_ref": txn_ref,
+            "status": "PENDING",
+            "poll_url": "",
+            "instructions": txn.instructions,
+            "demo_mode": True,
         }
+        if idem_store and idem_key:
+            idem_store.mark_processed(idem_key, payload)
+        return {"data": payload, "meta": _meta(request)}
 
     result = paynow_client.initiate_mobile_payment(
         reference=txn_ref,
@@ -259,16 +274,16 @@ def initiate_payment(
             "instructions", "Check your phone to complete payment."
         )
         db.commit()
-        return {
-            "data": {
-                "transaction_ref": txn_ref,
-                "status": "PENDING",
-                "poll_url": txn.poll_url,
-                "instructions": txn.instructions,
-                "demo_mode": False,
-            },
-            "meta": _meta(request),
+        payload = {
+            "transaction_ref": txn_ref,
+            "status": "PENDING",
+            "poll_url": txn.poll_url,
+            "instructions": txn.instructions,
+            "demo_mode": False,
         }
+        if idem_store and idem_key:
+            idem_store.mark_processed(idem_key, payload)
+        return {"data": payload, "meta": _meta(request)}
 
     err_msg = result.get("error", "Payment gateway returned an error.")
     txn.status = "FAILED"

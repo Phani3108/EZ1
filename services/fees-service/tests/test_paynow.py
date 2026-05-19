@@ -182,3 +182,61 @@ def test_webhook_idempotency_same_key_records_once():
     assert inv.status == "PAID"
     assert inv.paid_amount == Decimal("100.00")
     db.close()
+
+
+# ───────────── /fees/payments/initiate header-idempotency ─────────────
+
+def test_initiate_payment_idempotent_replay():
+    """Same Idempotency-Key header → one PaymentTransaction, cached payload."""
+    import uuid
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.database import get_db
+    from app import dependencies as deps
+
+    db = TestSession()
+    school_id = uuid.uuid4()
+    inv = _make_invoice(db, school_id, total=Decimal("100.00"))
+    inv_id = inv.id
+    db.close()
+
+    def _db_override():
+        d = TestSession()
+        try:
+            yield d
+        finally:
+            d.close()
+
+    app.dependency_overrides[get_db] = _db_override
+    app.dependency_overrides[deps.get_school_id] = lambda: school_id
+    app.dependency_overrides[deps.get_current_user] = lambda: {"sub": str(uuid.uuid4()), "email": "p@x.com"}
+
+    # Force demo mode (no real Paynow call) by clearing creds on the client.
+    payments_module.paynow_client.integration_id = ""
+    payments_module.paynow_client.integration_key = ""
+
+    client = TestClient(app)
+    body = {
+        "invoice_id": str(inv_id),
+        "amount": 50.0,
+        "method": "ECOCASH",
+        "phone": "+263772123456",
+    }
+    headers = {"Idempotency-Key": "abc-123"}
+
+    r1 = client.post("/api/v1/fees/payments/initiate", json=body, headers=headers)
+    r2 = client.post("/api/v1/fees/payments/initiate", json=body, headers=headers)
+
+    assert r1.status_code == 200, r1.text
+    assert r2.status_code == 200, r2.text
+    p1, p2 = r1.json(), r2.json()
+    assert p2["meta"].get("idempotent_replay") is True
+    assert p1["data"]["transaction_ref"] == p2["data"]["transaction_ref"]
+
+    # Exactly one PaymentTransaction row created.
+    db = TestSession()
+    txns = db.query(PaymentTransaction).filter(PaymentTransaction.invoice_id == inv_id).all()
+    assert len(txns) == 1
+    db.close()
+
+    app.dependency_overrides.clear()
