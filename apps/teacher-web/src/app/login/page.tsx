@@ -19,10 +19,15 @@ const loginSchema = z.object({
 });
 type LoginForm = z.infer<typeof loginSchema>;
 
+// Pre-production: allow exploration without credentials.
+const GUEST_EMAIL = "teacher@eduzim.com";
+const GUEST_PASSWORD = "123456";
+
 export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
   const [serverError, setServerError] = useState<string | null>(null);
+  const [guestSubmitting, setGuestSubmitting] = useState(false);
 
   const {
     register,
@@ -41,6 +46,20 @@ export default function LoginPage() {
       router.replace("/today");
     } catch {
       setServerError("Invalid email or password. Please try again.");
+    }
+  };
+
+  const onContinueAsGuest = async () => {
+    setServerError(null);
+    setGuestSubmitting(true);
+    try {
+      const { data } = await auth.login({ email: GUEST_EMAIL, password: GUEST_PASSWORD });
+      await login(data);
+      router.replace("/today");
+    } catch {
+      setServerError("Could not start guest session. Please try again.");
+    } finally {
+      setGuestSubmitting(false);
     }
   };
 
@@ -114,7 +133,7 @@ export default function LoginPage() {
 
               <button
                 type="submit"
-                disabled={isSubmitting}
+                disabled={isSubmitting || guestSubmitting}
                 className="mt-2 flex w-full items-center justify-center rounded-lg bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow hover:bg-primary/90 disabled:opacity-60"
               >
                 {isSubmitting ? (
@@ -127,6 +146,36 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+
+            {/* Guest access — pre-production */}
+            <div className="mt-5">
+              <div className="relative mb-4">
+                <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                  <div className="w-full border-t border-gray-200" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-white px-2 text-xs uppercase tracking-wider text-gray-400">or</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onContinueAsGuest}
+                disabled={isSubmitting || guestSubmitting}
+                className="flex w-full items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50 disabled:opacity-60"
+              >
+                {guestSubmitting ? (
+                  <span className="flex items-center gap-2">
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-400 border-t-transparent" />
+                    Starting guest session…
+                  </span>
+                ) : (
+                  "Continue as Guest"
+                )}
+              </button>
+              <p className="mt-2 text-center text-[11px] text-gray-400">
+                Preview build — sign-in is not yet required.
+              </p>
+            </div>
 
             <div className="mt-6 rounded-lg bg-blue-50 px-4 py-3 text-xs text-blue-700">
               <p className="font-semibold mb-1">Demo credentials</p>
