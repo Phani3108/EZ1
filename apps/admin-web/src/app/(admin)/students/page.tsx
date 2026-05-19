@@ -14,6 +14,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Button, Badge, Input, Label, Select,
   Sheet, SheetHeader, SheetTitle, SheetDescription, SheetBody, SheetFooter,
+  ExportMenu,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { Student } from "@eduzim/api-client";
@@ -88,6 +89,21 @@ export default function StudentsPage() {
     <RouteGuard permissions={["student:read"]} onUnauthenticated={() => {}}>
       <div className="space-y-6">
         <PageHeader title="Students" description="View and manage student records.">
+          <ExportMenu
+            filename="students"
+            title="Students"
+            subtitle={`${filtered.length} of ${students?.length ?? 0} record(s)`}
+            columns={[
+              { key: "student_code", label: "Code", width: 14 },
+              { key: "first_name",   label: "First name", width: 16 },
+              { key: "last_name",    label: "Last name",  width: 16 },
+              { key: "gender",       label: "Gender",     width: 8 },
+              { key: "date_of_birth",label: "DOB",        width: 14 },
+              { key: "admission_number", label: "Admission #", width: 14 },
+              { key: (s: Student) => (s.is_active ? "Active" : "Inactive"), label: "Status", width: 10 },
+            ]}
+            rows={filtered}
+          />
           <Link href="/students/import">
             <Button variant="outline" className="flex items-center gap-2">
               <Upload className="h-4 w-4" /> Import CSV

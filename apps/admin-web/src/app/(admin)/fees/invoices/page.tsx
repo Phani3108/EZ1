@@ -12,6 +12,7 @@ import {
   Button, Badge, Select,
   Sheet, SheetHeader, SheetTitle, SheetDescription, SheetBody,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+  ExportMenu,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { Invoice, Student, FeeStructure } from "@eduzim/api-client";
@@ -108,10 +109,29 @@ export default function InvoicesPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <PageHeader title={t("invoices")} />
-          <Button size="sm" onClick={() => setSheetOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            {t("createInvoice")}
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              filename="invoices"
+              title="Invoices"
+              subtitle={`${invoices?.length ?? 0} invoice(s)${statusFilter ? ` · ${statusFilter}` : ""}`}
+              columns={[
+                { key: (i: Invoice) => {
+                    const s = studentMap.get(i.student_id);
+                    return s ? `${s.first_name} ${s.last_name}` : i.student_id;
+                  }, label: "Student", width: 24 },
+                { key: "total_amount", label: "Total", width: 12 },
+                { key: "paid_amount",  label: "Paid",  width: 12 },
+                { key: "balance",      label: "Balance", width: 12 },
+                { key: "status",       label: "Status", width: 10 },
+                { key: "due_date",     label: "Due date", width: 14 },
+              ]}
+              rows={invoices ?? []}
+            />
+            <Button size="sm" onClick={() => setSheetOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t("createInvoice")}
+            </Button>
+          </div>
         </div>
 
         {/* Create invoice sheet */}

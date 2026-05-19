@@ -9,7 +9,7 @@ import React, { useState, useMemo } from "react";
 import Link from "next/link";
 import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
-  Button, Badge,
+  Button, Badge, ExportMenu,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { User } from "@eduzim/api-client";
@@ -53,7 +53,20 @@ export default function TeachersPage() {
   return (
     <RouteGuard onUnauthenticated={() => {}}>
       <div className="space-y-6">
-        <PageHeader title="Teachers" description="Teacher directory — staff members with the Teacher role." />
+        <PageHeader title="Teachers" description="Teacher directory — staff members with the Teacher role.">
+          <ExportMenu
+            filename="teachers"
+            title="Teachers"
+            subtitle={`${filtered.length} record(s)`}
+            columns={[
+              { key: (t: User) => t.full_name || t.email, label: "Name", width: 24 },
+              { key: "email", label: "Email", width: 28 },
+              { key: (t: User) => (t.is_active ? "Active" : "Inactive"), label: "Status", width: 10 },
+              { key: (t: User) => t.roles.map((r) => (typeof r === "string" ? r : r.name)).join(", "), label: "Roles", width: 22 },
+            ]}
+            rows={filtered}
+          />
+        </PageHeader>
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <SearchInput

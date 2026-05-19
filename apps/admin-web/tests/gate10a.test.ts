@@ -83,7 +83,7 @@ describe("Admin nav config", () => {
 
   it("has all 5 IA sections plus National Alignment", () => {
     const titles = adminNav.map((n) => n.title);
-    expect(titles).toEqual(["Dashboard", "Academics", "People", "Operations", "Intelligence", "National Alignment", "System"]);
+    expect(titles).toEqual(["Dashboard", "Academics", "People", "Operations", "Intelligence", "National Alignment", "Network", "System"]);
   });
 
   it("Academics section has Classes & Subjects as children", () => {

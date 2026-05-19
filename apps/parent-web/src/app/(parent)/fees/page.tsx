@@ -5,7 +5,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, Button } from "@eduzim/ui";
+import { Card, CardContent, CardHeader, CardTitle, Button, ExportMenu } from "@eduzim/ui";
 import { Receipt, Loader2, AlertCircle, ChevronDown, CheckCircle, Clock, XCircle, CreditCard } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { student, fees } from "@/lib/api";
@@ -54,12 +54,33 @@ export default function ParentFeesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <Receipt className="h-6 w-6 text-primary" />
-        <div>
-          <h1 className="text-2xl font-bold">Fees</h1>
-          <p className="text-sm text-muted-foreground">Invoices and payment history</p>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <Receipt className="h-6 w-6 text-primary" />
+          <div>
+            <h1 className="text-2xl font-bold">Fees</h1>
+            <p className="text-sm text-muted-foreground">Invoices and payment history</p>
+          </div>
         </div>
+        <ExportMenu
+          filename={`fee-statement-${child?.first_name?.toLowerCase() ?? "child"}`}
+          title="Fee Statement"
+          subtitle={child ? `${child.first_name} ${child.last_name}` : "Fee statement"}
+          meta={[
+            ["Total billed", fmt((invoices ?? []).reduce((s, i) => s + i.total_amount, 0))],
+            ["Total paid",   fmt(totalPaid)],
+            ["Outstanding",  fmt(totalBalance)],
+          ]}
+          columns={[
+            { key: "id",            label: "Invoice", width: 14 },
+            { key: "total_amount",  label: "Total",   width: 12 },
+            { key: "paid_amount",   label: "Paid",    width: 12 },
+            { key: "balance",       label: "Balance", width: 12 },
+            { key: "status",        label: "Status",  width: 10 },
+            { key: "due_date",      label: "Due date", width: 14 },
+          ]}
+          rows={invoices ?? []}
+        />
       </div>
 
       {/* Child selector */}

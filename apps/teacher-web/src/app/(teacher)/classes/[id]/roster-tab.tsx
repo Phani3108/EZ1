@@ -7,7 +7,7 @@
 import React from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { Card, CardContent } from "@eduzim/ui";
+import { Card, CardContent, ExportMenu } from "@eduzim/ui";
 import { Users, Eye } from "lucide-react";
 import type { Enrollment, Student } from "@eduzim/api-client";
 
@@ -54,6 +54,26 @@ export function RosterTab({ rosterStudents, isLoading, classId }: RosterTabProps
   return (
     <Card>
       <CardContent className="p-0">
+        <div className="flex items-center justify-between gap-2 border-b px-4 py-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {rosterStudents.length} {rosterStudents.length === 1 ? "student" : "students"}
+          </span>
+          <ExportMenu
+            filename="class-roster"
+            title="Class Roster"
+            subtitle={`${rosterStudents.length} student(s)`}
+            columns={[
+              { key: (r) => r.student.first_name, label: "First name", width: 16 },
+              { key: (r) => r.student.last_name,  label: "Last name",  width: 16 },
+              { key: (r) => r.student.admission_number ?? "—", label: "Admission #", width: 14 },
+              { key: (r) => r.student.gender ?? "—", label: "Gender", width: 8 },
+              { key: (r) => r.student.date_of_birth ?? "—", label: "DOB", width: 14 },
+              { key: (r) => new Date(r.enrollment.enrolled_at).toLocaleDateString(), label: "Enrolled", width: 14 },
+            ]}
+            rows={rosterStudents}
+            variant="compact"
+          />
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

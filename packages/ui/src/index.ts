@@ -85,3 +85,19 @@ export type { AudioPlayButtonProps } from "./components/joyful/audio-play-button
 export { AUDIO_MANIFEST, getClip } from "./assets/audio-manifest";
 export type { AudioClip, SupportedLocale } from "./assets/audio-manifest";
 
+/* ─── Exports (Excel / PDF — client-side, guest-mode safe) ─── */
+export { ExportMenu } from "./components/export-menu";
+export type { ExportMenuProps } from "./components/export-menu";
+export {
+    exportToXlsx,
+    exportToPdf,
+    exportReportCardPdf,
+} from "./lib/export";
+export type {
+    ExportColumn,
+    ExportOptions,
+    ReportCardOptions,
+    ReportCardSubject,
+} from "./lib/export";
+
+

@@ -13,6 +13,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Button, Badge, Input, Label, Switch,
   Sheet, SheetHeader, SheetTitle, SheetDescription, SheetBody, SheetFooter,
+  ExportMenu,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { SchoolClass } from "@eduzim/api-client";
@@ -82,10 +83,24 @@ export default function ClassesPage() {
               Manage school classes and grade levels.
             </p>
           </div>
-          <Button onClick={openCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            New Class
-          </Button>
+          <div className="flex items-center gap-2">
+            <ExportMenu
+              filename="classes"
+              title="Classes"
+              subtitle={`${classes?.length ?? 0} class(es)`}
+              columns={[
+                { key: "name",        label: "Name",        width: 18 },
+                { key: "grade_level", label: "Grade level", width: 12 },
+                { key: "capacity",    label: "Capacity",    width: 10 },
+                { key: (c: SchoolClass) => (c.is_active ? "Active" : "Inactive"), label: "Status", width: 10 },
+              ]}
+              rows={classes ?? []}
+            />
+            <Button onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" />
+              New Class
+            </Button>
+          </div>
         </div>
 
         {error && (

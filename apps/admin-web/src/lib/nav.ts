@@ -21,6 +21,8 @@ import {
   Landmark,
   ClipboardList,
   ServerCog,
+  Map,
+  School,
   type LucideIcon,
 } from "lucide-react";
 
@@ -106,6 +108,18 @@ export const adminNav: NavItem[] = [
     href: "/national-alignment",
     icon: Landmark,
     permission: "authenticated",
+  },
+
+  // ─── National Network ───
+  {
+    title: "Network",
+    href: "/provinces",
+    icon: Map,
+    permission: "authenticated",
+    children: [
+      { title: "Provinces", href: "/provinces", permission: "authenticated" },
+      { title: "Schools",   href: "/schools",   permission: "authenticated" },
+    ],
   },
 
   // ─── System ───

@@ -15,6 +15,7 @@ import {
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
   Button, Input, Label, Select,
   Sheet, SheetHeader, SheetTitle, SheetDescription, SheetBody, SheetFooter,
+  ExportMenu,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { Parent } from "@eduzim/api-client";
@@ -82,6 +83,19 @@ export default function ParentsPage() {
     <RouteGuard permissions={["student:read"]} onUnauthenticated={() => {}}>
       <div className="space-y-6">
         <PageHeader title="Parents" description="Parent & guardian directory. One profile per parent, linked to children.">
+          <ExportMenu
+            filename="parents"
+            title="Parents"
+            subtitle={`${filtered.length} of ${parents?.length ?? 0} record(s)`}
+            columns={[
+              { key: "first_name", label: "First name", width: 16 },
+              { key: "last_name",  label: "Last name",  width: 16 },
+              { key: "phone",      label: "Phone",      width: 16 },
+              { key: "email",      label: "Email",      width: 26 },
+              { key: "relationship", label: "Relationship", width: 14 },
+            ]}
+            rows={filtered}
+          />
           <Button onClick={openCreate}>
             <Plus className="h-4 w-4 mr-1" /> Add Parent
           </Button>
