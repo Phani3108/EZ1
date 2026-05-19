@@ -70,10 +70,13 @@ def create_fee_structure(data: FeeStructureCreate, request: Request,
 
 @router.get("/fees/structures")
 def list_fee_structures(request: Request, year_id: uuid.UUID = Query(None),
+                        limit: int = Query(200, ge=1, le=500),
+                        offset: int = Query(0, ge=0),
                         db: Session = Depends(get_db),
                         school_id: uuid.UUID = Depends(get_school_id)):
     svc = FeesService(db)
-    return {"data": svc.list_fee_structures(school_id, year_id), "meta": _meta(request)}
+    return {"data": svc.list_fee_structures(school_id, year_id, limit=limit, offset=offset),
+            "meta": _meta(request)}
 
 
 # ───── Invoices ─────
@@ -98,10 +101,13 @@ def create_invoice(data: InvoiceCreate, request: Request,
 @router.get("/fees/invoices")
 def list_invoices(request: Request, student_id: uuid.UUID = Query(None),
                   status: str = Query(None),
+                  limit: int = Query(100, ge=1, le=500),
+                  offset: int = Query(0, ge=0),
                   db: Session = Depends(get_db),
                   school_id: uuid.UUID = Depends(get_school_id)):
     svc = FeesService(db)
-    return {"data": svc.list_invoices(school_id, student_id, status), "meta": _meta(request)}
+    return {"data": svc.list_invoices(school_id, student_id, status, limit=limit, offset=offset),
+            "meta": _meta(request)}
 
 
 @router.get("/fees/invoices/{invoice_id}")
@@ -177,10 +183,13 @@ def record_payment(data: PaymentCreate, request: Request,
 
 @router.get("/fees/payments")
 def list_payments(request: Request, invoice_id: uuid.UUID = Query(None),
+                  limit: int = Query(100, ge=1, le=500),
+                  offset: int = Query(0, ge=0),
                   db: Session = Depends(get_db),
                   school_id: uuid.UUID = Depends(get_school_id)):
     svc = FeesService(db)
-    return {"data": svc.list_payments(school_id, invoice_id), "meta": _meta(request)}
+    return {"data": svc.list_payments(school_id, invoice_id, limit=limit, offset=offset),
+            "meta": _meta(request)}
 
 
 @router.get("/fees/payments/{payment_id}/receipt")

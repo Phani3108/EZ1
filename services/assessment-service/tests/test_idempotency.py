@@ -18,7 +18,7 @@ os.environ["JWT_SECRET_KEY"] = "test-secret"
 os.environ["KAFKA_ENABLED"] = "false"
 
 from sqlalchemy import create_engine, event
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, close_all_sessions
 
 from app.database import Base
 from app.models.assessment import Assessment, Mark  # noqa: register models
@@ -43,7 +43,7 @@ def _sqlite_wal(dbapi_conn, rec):
 def setup_db():
     Base.metadata.create_all(bind=engine)
     yield
-    TestSession.close_all()
+    close_all_sessions()
     Base.metadata.drop_all(bind=engine)
     if os.path.exists("./test_assessment_idempotency.db"):
         try:

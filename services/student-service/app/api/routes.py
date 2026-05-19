@@ -243,10 +243,14 @@ def create_enrollment(data: EnrollmentCreate, request: Request,
 def list_enrollments(request: Request,
                      class_id: uuid.UUID = Query(None),
                      year_id: uuid.UUID = Query(None),
+                     limit: int = Query(200, ge=1, le=500),
+                     offset: int = Query(0, ge=0),
                      db: Session = Depends(get_db),
                      school_id: uuid.UUID = Depends(get_school_id)):
     svc = _svc(db)
-    return {"data": svc.list_enrollments(school_id, class_id, year_id), "meta": _meta(request)}
+    return {"data": svc.list_enrollments(school_id, class_id, year_id,
+                                          limit=limit, offset=offset),
+            "meta": _meta(request)}
 
 
 @router.put("/enrollments/{enrollment_id}")

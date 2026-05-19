@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -18,9 +18,7 @@ class Settings(BaseSettings):
     PAYNOW_RESULT_URL: str = "https://api.eduzim.co.zw/api/v1/fees/payments/webhook/paynow"
     PAYNOW_RETURN_URL: str = "https://admin.eduzim.co.zw/fees/payment-complete"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
 @lru_cache()

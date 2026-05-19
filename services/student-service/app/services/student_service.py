@@ -344,12 +344,16 @@ class StudentService:
 
     def list_enrollments(self, school_id: uuid.UUID,
                          class_id: uuid.UUID = None,
-                         academic_year_id: uuid.UUID = None) -> list[dict]:
+                         academic_year_id: uuid.UUID = None,
+                         limit: int = 200, offset: int = 0) -> list[dict]:
+        limit = max(1, min(int(limit or 200), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(Enrollment).filter(Enrollment.school_id == school_id)
         if class_id:
             q = q.filter(Enrollment.class_id == class_id)
         if academic_year_id:
             q = q.filter(Enrollment.academic_year_id == academic_year_id)
+        q = q.order_by(Enrollment.enrolled_at.desc()).offset(offset).limit(limit)
         return [self._ser_enrollment(e) for e in q.all()]
 
     def update_enrollment(self, enrollment_id: uuid.UUID, school_id: uuid.UUID,

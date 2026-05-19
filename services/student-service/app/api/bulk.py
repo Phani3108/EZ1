@@ -260,11 +260,13 @@ def promote_students(
             results["errors"].append({"error": "Both from_class_id and to_class_id are required"})
             continue
 
-        # Get current enrollments for the source class and year
+        # Get current enrollments for the source class and year.
+        # Use the upper cap; class promotion needs all students at once.
         enrollments = svc.list_enrollments(
             school_id=school_id,
             class_id=uuid.UUID(from_class),
             academic_year_id=data.from_academic_year_id,
+            limit=500,
         )
 
         for enr in enrollments:

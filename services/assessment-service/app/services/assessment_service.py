@@ -56,7 +56,11 @@ class AssessmentService:
         class_id: uuid.UUID,
         term_id: uuid.UUID,
         subject_id: Optional[uuid.UUID] = None,
+        limit: int = 200,
+        offset: int = 0,
     ) -> list[dict]:
+        limit = max(1, min(int(limit or 200), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(Assessment).filter(
             Assessment.school_id == str(school_id),
             Assessment.class_id == str(class_id),
@@ -65,7 +69,7 @@ class AssessmentService:
         )
         if subject_id:
             q = q.filter(Assessment.subject_id == str(subject_id))
-        q = q.order_by(Assessment.date.desc())
+        q = q.order_by(Assessment.date.desc()).offset(offset).limit(limit)
         return [self._ser_assessment(a) for a in q.all()]
 
     def get_assessment(

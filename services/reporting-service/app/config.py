@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -17,9 +17,7 @@ class Settings(BaseSettings):
     ATTENDANCE_SERVICE_URL: str = "http://attendance-service:8000"
     FEES_SERVICE_URL: str = "http://fees-service:8000"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
 @lru_cache()

@@ -121,12 +121,15 @@ def list_assessments(
     class_id: uuid.UUID = Query(...),
     term_id: uuid.UUID = Query(...),
     subject_id: uuid.UUID = Query(None),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
     db: Session = Depends(get_db),
     current_user: dict = Depends(get_current_user),
     school_id: uuid.UUID = Depends(get_school_id),
 ):
     svc = AssessmentService(db)
-    result = svc.list_assessments(school_id, class_id, term_id, subject_id)
+    result = svc.list_assessments(school_id, class_id, term_id, subject_id,
+                                   limit=limit, offset=offset)
     return {"data": result, "meta": _meta(request)}
 
 

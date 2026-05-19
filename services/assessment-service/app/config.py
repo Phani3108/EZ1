@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -19,9 +19,7 @@ class Settings(BaseSettings):
     STUDENT_SERVICE_URL: str = "http://localhost:8003"
     INTERNAL_SERVICE_TOKEN: str = "eduzim-internal-secret-change-in-production"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
 @lru_cache()

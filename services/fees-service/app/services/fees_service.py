@@ -48,10 +48,14 @@ class FeesService:
         return self._ser_structure(fs)
 
     def list_fee_structures(self, school_id: uuid.UUID,
-                             academic_year_id: uuid.UUID = None) -> list[dict]:
+                             academic_year_id: uuid.UUID = None,
+                             limit: int = 200, offset: int = 0) -> list[dict]:
+        limit = max(1, min(int(limit or 200), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(FeeStructure).filter(FeeStructure.school_id == school_id)
         if academic_year_id:
             q = q.filter(FeeStructure.academic_year_id == academic_year_id)
+        q = q.order_by(FeeStructure.created_at).offset(offset).limit(limit)
         return [self._ser_structure(fs) for fs in q.all()]
 
     # ───────────── Invoice ─────────────
@@ -103,12 +107,16 @@ class FeesService:
         return self._ser_invoice(invoice)
 
     def list_invoices(self, school_id: uuid.UUID, student_id: uuid.UUID = None,
-                      status: str = None) -> list[dict]:
+                      status: str = None,
+                      limit: int = 100, offset: int = 0) -> list[dict]:
+        limit = max(1, min(int(limit or 100), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(Invoice).filter(Invoice.school_id == school_id)
         if student_id:
             q = q.filter(Invoice.student_id == student_id)
         if status:
             q = q.filter(Invoice.status == status)
+        q = q.order_by(Invoice.created_at.desc()).offset(offset).limit(limit)
         return [self._ser_invoice(inv) for inv in q.all()]
 
     def get_invoice(self, invoice_id: uuid.UUID,
@@ -196,11 +204,15 @@ class FeesService:
         }
 
     def list_payments(self, school_id: uuid.UUID,
-                      invoice_id: uuid.UUID = None) -> list[dict]:
+                      invoice_id: uuid.UUID = None,
+                      limit: int = 100, offset: int = 0) -> list[dict]:
+        limit = max(1, min(int(limit or 100), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(Payment).filter(Payment.school_id == school_id)
         if invoice_id:
             q = q.filter(Payment.invoice_id == invoice_id)
-        return [self._ser_payment(p) for p in q.order_by(Payment.created_at).all()]
+        q = q.order_by(Payment.created_at).offset(offset).limit(limit)
+        return [self._ser_payment(p) for p in q.all()]
 
     # ───────────── Defaulters ─────────────
 
