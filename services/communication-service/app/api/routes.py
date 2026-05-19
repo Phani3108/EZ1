@@ -137,10 +137,13 @@ def delete_announcement(ann_id: uuid.UUID, request: Request,
 @router.get("/comm/outbox")
 def get_outbox(request: Request, status: str = Query(None),
                announcement_id: uuid.UUID = Query(None),
+               limit: int = Query(100, ge=1, le=500),
+               offset: int = Query(0, ge=0),
                db: Session = Depends(get_db),
                school_id: uuid.UUID = Depends(get_school_id)):
     svc = CommunicationService(db)
-    return {"data": svc.get_outbox(school_id, status, announcement_id), "meta": _meta(request)}
+    return {"data": svc.get_outbox(school_id, status, announcement_id, limit, offset),
+            "meta": _meta(request)}
 
 
 @router.get("/comm/outbox/stats")

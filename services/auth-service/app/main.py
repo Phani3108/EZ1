@@ -2,6 +2,14 @@ from app.config import get_settings
 
 settings = get_settings()
 
+# Fail closed if dev JWT secret is used outside DEBUG.
+_DEV_JWT_SECRET = "dev-jwt-secret-change-in-production"
+if not settings.DEBUG and settings.JWT_SECRET_KEY == _DEV_JWT_SECRET:
+    raise RuntimeError(
+        "Refusing to start: JWT_SECRET_KEY is set to the well-known development value "
+        "while DEBUG=False. Set a strong JWT_SECRET_KEY environment variable."
+    )
+
 # Use shared app factory
 import sys
 sys.path.insert(0, "../../shared")

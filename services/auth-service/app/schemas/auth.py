@@ -57,8 +57,7 @@ class UserBrief(BaseModel):
     email: str
     roles: list[str]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserResponse(BaseModel):
@@ -72,8 +71,7 @@ class UserResponse(BaseModel):
     roles: list["RoleResponse"] = []
     permissions: list[str] = []
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class MeResponse(BaseModel):
@@ -85,8 +83,7 @@ class MeResponse(BaseModel):
     roles: list[str]
     permissions: list[str]
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # --- Roles ---
@@ -110,8 +107,7 @@ class RoleResponse(BaseModel):
     created_at: datetime
     permissions: list["PermissionResponse"] = []
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class RoleAssignment(BaseModel):
@@ -131,8 +127,7 @@ class PermissionResponse(BaseModel):
     resource: str
     action: str
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 # --- User Preferences ---
@@ -152,8 +147,7 @@ class UserPreferencesResponse(BaseModel):
     read_aloud_enabled: bool = False
     reduced_motion: bool = False
 
-    class Config:
-        from_attributes = True
+    model_config = {"from_attributes": True}
 
 
 class UserPreferencesUpdate(BaseModel):

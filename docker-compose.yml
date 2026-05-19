@@ -280,6 +280,7 @@ services:
       ASSESSMENT_SERVICE_URL: http://assessment-service:8000
       REDIS_URL: redis://redis:6379/3
       REDIS_ENABLED: "true"
+      COOKIE_SECURE: "false"  # local HTTP dev only; docker-compose.prod.yml sets true
     ports:
       - "8000:8000"
     depends_on:

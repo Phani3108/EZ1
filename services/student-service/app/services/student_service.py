@@ -159,8 +159,18 @@ class StudentService:
         self.db.refresh(parent)
         return self._ser_parent(parent)
 
-    def list_parents(self, school_id: uuid.UUID) -> list[dict]:
-        parents = self.db.query(Parent).filter(Parent.school_id == school_id).all()
+    def list_parents(self, school_id: uuid.UUID,
+                     limit: int = 100, offset: int = 0) -> list[dict]:
+        limit = max(1, min(int(limit or 100), 500))
+        offset = max(0, int(offset or 0))
+        parents = (
+            self.db.query(Parent)
+            .filter(Parent.school_id == school_id)
+            .order_by(Parent.created_at)
+            .offset(offset)
+            .limit(limit)
+            .all()
+        )
         return [self._ser_parent(p) for p in parents]
 
     def update_parent(self, parent_id: uuid.UUID, school_id: uuid.UUID,

@@ -253,21 +253,26 @@ class ReportingService:
             }
         attendance_rate = 0.0
         if stats.attendance_today_total > 0:
-            attendance_rate = round(stats.attendance_today_present / stats.attendance_today_total, 3)
-        
-        # Outstanding is simple subtraction
+            attendance_rate = round(
+                (stats.attendance_today_present / stats.attendance_today_total) * 100.0,
+                1,
+            )
+
         outstanding = float(stats.total_invoiced - stats.total_paid)
-        
-        # We need total_classes too, let's count from student count projection or just return a default for now
-        # Ideally we'd have a separate stat, but let's derive or use a sensible mock value if not tracked.
-        # Looking at DashboardStats, it doesn't have total_classes. I'll add a placeholder or count.
-        
+        collected = float(stats.total_paid)
+
         return {
             "total_students": stats.total_students,
             "active_students": stats.active_students,
-            "total_classes": stats.total_enrollments // 10 + 1,  # Derived mock for now
-            "attendance_rate": attendance_rate,
-            "total_revenue": float(stats.total_paid),
+            "total_enrollments": stats.total_enrollments,
+            "attendance_today_rate": attendance_rate,
+            "outstanding_fees": outstanding,
+            "collected_this_term": collected,
+            "announcements_this_month": stats.announcements_this_month,
+            # Legacy / extra fields kept for backwards-compatible consumers
+            "total_classes": stats.total_enrollments // 10 + 1,
+            "attendance_rate": attendance_rate / 100.0 if attendance_rate else 0.0,
+            "total_revenue": collected,
             "total_outstanding": outstanding,
             "announcements_count": stats.announcements_this_month,
         }

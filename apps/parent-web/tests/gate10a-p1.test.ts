@@ -102,7 +102,8 @@ describe("Home page content", () => {
   });
 
   it("shows empty state when no children", () => {
-    expect(homeContent).toContain("No children linked");
+    // Home page uses next-intl; source references the empty-state component and i18n key.
+    expect(homeContent).toMatch(/IllustratedEmptyState|noChildren/);
   });
 });
 

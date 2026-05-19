@@ -177,10 +177,14 @@ def create_parent(data: ParentCreate, request: Request,
 
 
 @router.get("/parents")
-def list_parents(request: Request, db: Session = Depends(get_db),
+def list_parents(request: Request,
+                 limit: int = Query(100, ge=1, le=500),
+                 offset: int = Query(0, ge=0),
+                 db: Session = Depends(get_db),
                  school_id: uuid.UUID = Depends(get_school_id)):
     svc = _svc(db)
-    return {"data": svc.list_parents(school_id), "meta": _meta(request)}
+    return {"data": svc.list_parents(school_id, limit=limit, offset=offset),
+            "meta": _meta(request)}
 
 
 @router.put("/parents/{parent_id}")

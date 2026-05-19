@@ -1,4 +1,4 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from functools import lru_cache
 
 
@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # Security
     ENFORCE_HTTPS: bool = False        # Set True in production
     HSTS_MAX_AGE: int = 31536000       # 1 year
+    COOKIE_SECURE: bool = True         # Require HTTPS for refresh cookie; flip to False ONLY for local plain-HTTP dev
 
     # Downstream timeouts
     DOWNSTREAM_TIMEOUT: float = 10.0   # seconds
@@ -52,9 +53,7 @@ class Settings(BaseSettings):
     # Readiness cache
     READINESS_CACHE_TTL: int = 15      # seconds
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 
 
 @lru_cache()

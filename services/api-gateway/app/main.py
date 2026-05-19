@@ -36,6 +36,20 @@ from app.proxy import GatewayProxy
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
+# ───────────── Startup secret guard ─────────────
+# Fail closed if the well-known development JWT secret is used in a non-DEBUG environment.
+_DEV_JWT_SECRET = "dev-jwt-secret-change-in-production"
+if not settings.DEBUG and settings.JWT_SECRET_KEY == _DEV_JWT_SECRET:
+    raise RuntimeError(
+        "Refusing to start: JWT_SECRET_KEY is set to the well-known development value "
+        "while DEBUG=False. Set a strong JWT_SECRET_KEY environment variable."
+    )
+if not settings.DEBUG and not settings.COOKIE_SECURE:
+    logger.warning(
+        "COOKIE_SECURE=False with DEBUG=False — refresh cookies will be sent over HTTP. "
+        "Set COOKIE_SECURE=true behind TLS."
+    )
+
 # Cookie settings for refresh-token
 RT_COOKIE_NAME = "eduzim_rt"
 RT_COOKIE_PATH = "/api/v1/auth"
@@ -309,7 +323,7 @@ async def gateway_proxy(request: Request, full_path: str):
                 path=RT_COOKIE_PATH,
                 httponly=True,
                 samesite=RT_COOKIE_SAMESITE,
-                secure=False,  # set True in production behind TLS
+                secure=settings.COOKIE_SECURE,
             )
 
     if is_refresh and status_code < 400 and isinstance(response_body, dict):
@@ -328,7 +342,7 @@ async def gateway_proxy(request: Request, full_path: str):
                 path=RT_COOKIE_PATH,
                 httponly=True,
                 samesite=RT_COOKIE_SAMESITE,
-                secure=False,
+                secure=settings.COOKIE_SECURE,
             )
 
     if is_logout:

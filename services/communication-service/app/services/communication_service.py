@@ -209,7 +209,11 @@ class CommunicationService:
     # ───────────── Outbox ─────────────
 
     def get_outbox(self, school_id: uuid.UUID, status: str = None,
-                   announcement_id: uuid.UUID = None) -> list[dict]:
+                   announcement_id: uuid.UUID = None,
+                   limit: int = 100, offset: int = 0) -> list[dict]:
+        # Hard-cap to protect against runaway tenants.
+        limit = max(1, min(int(limit or 100), 500))
+        offset = max(0, int(offset or 0))
         q = self.db.query(NotificationOutbox).filter(
             NotificationOutbox.school_id == school_id,
         )
@@ -217,7 +221,13 @@ class CommunicationService:
             q = q.filter(NotificationOutbox.status == status)
         if announcement_id:
             q = q.filter(NotificationOutbox.announcement_id == announcement_id)
-        return [self._ser_outbox(o) for o in q.order_by(NotificationOutbox.created_at).all()]
+        rows = (
+            q.order_by(NotificationOutbox.created_at)
+             .offset(offset)
+             .limit(limit)
+             .all()
+        )
+        return [self._ser_outbox(o) for o in rows]
 
     # ───────────── Delivery Engine ─────────────
 

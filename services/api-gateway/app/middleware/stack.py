@@ -31,34 +31,44 @@ def extract_request_id(headers: dict) -> str:
 
 # ───────────── 2. Auth (JWT) ─────────────
 
-def validate_jwt(auth_header: str) -> dict:
-    """Validate JWT Bearer token. Returns payload or raises (MOCKED FOR LOCAL BYPASS)."""
-    mock_payload = {
-        "sub": "00000000-0000-0000-0000-000000000000",
-        "email": "dev@eduzim.zw",
-        "role": "admin",
-        "roles": ["admin"],
-        "permissions": ["*"],
-        "school_id": "11111111-1111-1111-1111-111111111111",
-        "type": "access"
-    }
+def validate_jwt(auth_header: str) -> dict | None:
+    """Validate a JWT Bearer token.
 
-    if not auth_header or not auth_header.startswith("Bearer "):
-        return mock_payload
-    token = auth_header[7:]
+    Returns the decoded payload on success, or ``None`` on any failure:
+      * missing/blank Authorization header
+      * not a ``Bearer`` scheme or empty token
+      * signature/expiry/algorithm errors
+      * token ``type`` other than ``access``
+
+    NOTE — there is NO dev-mode bypass. Every request hitting the gateway
+    must carry a valid access token. For local development, issue a real
+    token via ``POST /api/v1/auth/login`` against the auth-service (or use
+    ``scripts/dev-seed.sh`` to seed credentials).
+    """
+    if not auth_header or not isinstance(auth_header, str):
+        return None
+    if not auth_header.startswith("Bearer "):
+        return None
+    token = auth_header[7:].strip()
+    if not token:
+        return None
     try:
-        payload = jwt.decode(token, settings.JWT_SECRET_KEY,
-                             algorithms=[settings.JWT_ALGORITHM])
-        if payload.get("type") == "access":
-            return payload
-        else:
-            logger.warning(f"JWT type mismatch: {payload.get('type')}")
+        payload = jwt.decode(
+            token,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
     except JWTError as e:
-        logger.error(f"JWT validation failed: {str(e)}", extra={"token_preview": token[:10]})
-    except Exception as e:
-        logger.error(f"Unexpected JWT error: {str(e)}")
+        logger.warning("JWT validation failed: %s", e, extra={"token_preview": token[:10]})
+        return None
+    except Exception as e:  # pragma: no cover — defensive
+        logger.error("Unexpected JWT error: %s", e)
+        return None
 
-    return mock_payload
+    if payload.get("type") != "access":
+        logger.warning("JWT type mismatch: %s (expected 'access')", payload.get("type"))
+        return None
+    return payload
 
 
 # ───────────── 3. RBAC ─────────────
