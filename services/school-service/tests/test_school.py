@@ -572,3 +572,107 @@ class TestGetTeacherClassIds:
         svc.assign_class_teacher(SCHOOL_A, cls1_id, TEACHER_1, year_id)
         ids = svc.get_teacher_class_ids(TEACHER_1, SCHOOL_B)
         assert ids == []
+
+
+# ═══════════════════════════════════════════
+# Provinces / Districts / School Geo
+# ═══════════════════════════════════════════
+
+class TestSchoolGeo:
+    def _seed_geo(self, db):
+        from app.models.school import Province, District
+        db.add_all([
+            Province(code="HRE", name="Harare Metropolitan",
+                     region="Mashonaland", capital="Harare", country="ZW"),
+            Province(code="BYO", name="Bulawayo Metropolitan",
+                     region="Matabeleland", capital="Bulawayo", country="ZW"),
+        ])
+        db.flush()
+        db.add_all([
+            District(code="hre-cn", name="Harare Central", province_code="HRE"),
+            District(code="hre-ea", name="Harare East", province_code="HRE"),
+            District(code="byo-cn", name="Bulawayo Central", province_code="BYO"),
+        ])
+        db.commit()
+
+    def test_list_provinces(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        rows = svc.list_provinces()
+        assert {r["code"] for r in rows} == {"HRE", "BYO"}
+
+    def test_list_districts_filtered_by_province(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        rows = svc.list_districts(province_code="HRE")
+        assert {r["code"] for r in rows} == {"hre-cn", "hre-ea"}
+        assert all(r["province_code"] == "HRE" for r in rows)
+
+    def test_list_districts_unfiltered(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        rows = svc.list_districts()
+        assert len(rows) == 3
+
+    def test_get_province(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        p = svc.get_province("HRE")
+        assert p["name"] == "Harare Metropolitan"
+
+    def test_get_unknown_province_returns_none(self, db):
+        svc = _svc(db)
+        assert svc.get_province("ZZZ") is None
+
+    def test_update_school_geo_happy_path(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        svc.create_school(SCHOOL_A, "Test School")
+        result = svc.update_school_geo(
+            SCHOOL_A,
+            province_code="HRE", district_code="hre-cn",
+            school_type="PRIMARY",
+            principal_name="Mrs. Mhlanga",
+            address="1 Main St",
+            phone="+263 4 1234567",
+            email="admin@school.test",
+            founded_year=1985,
+        )
+        assert result["province_code"] == "HRE"
+        assert result["district_code"] == "hre-cn"
+        assert result["school_type"] == "PRIMARY"
+        assert result["principal_name"] == "Mrs. Mhlanga"
+        assert result["founded_year"] == 1985
+
+    def test_update_school_geo_invalid_province(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        svc.create_school(SCHOOL_A, "Test School")
+        result = svc.update_school_geo(SCHOOL_A, province_code="ZZZ")
+        assert result["error"] == "INVALID_PROVINCE"
+
+    def test_update_school_geo_invalid_district(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        svc.create_school(SCHOOL_A, "Test School")
+        result = svc.update_school_geo(SCHOOL_A, district_code="nope-x")
+        assert result["error"] == "INVALID_DISTRICT"
+
+    def test_update_school_geo_district_province_mismatch(self, db):
+        self._seed_geo(db)
+        svc = _svc(db)
+        svc.create_school(SCHOOL_A, "Test School")
+        svc.update_school_geo(SCHOOL_A, province_code="HRE")
+        result = svc.update_school_geo(SCHOOL_A, district_code="byo-cn")
+        assert result["error"] == "DISTRICT_PROVINCE_MISMATCH"
+
+    def test_update_school_geo_invalid_school_type(self, db):
+        svc = _svc(db)
+        svc.create_school(SCHOOL_A, "Test School")
+        result = svc.update_school_geo(SCHOOL_A, school_type="MIDDLE")
+        assert result["error"] == "INVALID_TYPE"
+
+    def test_update_school_geo_unknown_school(self, db):
+        svc = _svc(db)
+        result = svc.update_school_geo(uuid.uuid4(), school_type="PRIMARY")
+        assert result is None

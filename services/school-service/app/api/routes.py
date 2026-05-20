@@ -90,6 +90,17 @@ class ClassTeacherCreate(BaseModel):
     academic_year_id: uuid.UUID
 
 
+class SchoolGeoUpdate(BaseModel):
+    province_code: Optional[str] = Field(default=None, max_length=8)
+    district_code: Optional[str] = Field(default=None, max_length=16)
+    school_type: Optional[str] = Field(default=None, max_length=20)
+    principal_name: Optional[str] = Field(default=None, max_length=255)
+    address: Optional[str] = None
+    phone: Optional[str] = Field(default=None, max_length=50)
+    email: Optional[str] = Field(default=None, max_length=255)
+    founded_year: Optional[int] = None
+
+
 # ───── School ─────
 
 @router.post("/schools")
@@ -380,3 +391,55 @@ def authorize_teacher_student(request: Request,
         teacher_user_id, student_id, school_id, class_id
     )
     return {"authorized": authorized}
+
+
+# ───── Provinces & Districts (read-only reference) ─────
+
+@router.get("/provinces")
+def list_provinces(request: Request, db: Session = Depends(get_db)):
+    """Public-ish reference listing — no school_id needed. Auth still required."""
+    svc = SchoolService(db)
+    return {"data": svc.list_provinces(), "meta": _meta(request)}
+
+
+@router.get("/provinces/{code}")
+def get_province(code: str, request: Request, db: Session = Depends(get_db)):
+    svc = SchoolService(db)
+    p = svc.get_province(code)
+    if not p:
+        raise HTTPException(status_code=404, detail=_err("NOT_FOUND", "Province not found", request))
+    districts = svc.list_districts(province_code=code)
+    return {"data": {**p, "districts": districts}, "meta": _meta(request)}
+
+
+@router.get("/districts")
+def list_districts(request: Request,
+                   province_code: Optional[str] = Query(default=None, max_length=8),
+                   db: Session = Depends(get_db)):
+    svc = SchoolService(db)
+    return {"data": svc.list_districts(province_code=province_code), "meta": _meta(request)}
+
+
+@router.patch("/schools/current/geo")
+def update_current_school_geo(data: SchoolGeoUpdate, request: Request,
+                              db: Session = Depends(get_db),
+                              school_id: uuid.UUID = Depends(get_school_id),
+                              current_user: dict = Depends(get_current_user)):
+    """Set or update a school's geography + profile metadata."""
+    svc = SchoolService(db)
+    result = svc.update_school_geo(
+        school_id,
+        province_code=data.province_code,
+        district_code=data.district_code,
+        school_type=data.school_type,
+        principal_name=data.principal_name,
+        address=data.address,
+        phone=data.phone,
+        email=data.email,
+        founded_year=data.founded_year,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail=_err("NOT_FOUND", "School not found", request))
+    if isinstance(result, dict) and result.get("error"):
+        raise HTTPException(status_code=400, detail=_err(result["error"], result["message"], request))
+    return {"data": result, "meta": _meta(request)}

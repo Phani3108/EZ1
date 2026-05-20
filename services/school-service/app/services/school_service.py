@@ -13,6 +13,7 @@ from sqlalchemy import and_
 
 from app.models.school import (
     School, AcademicYear, Term, Class, Subject, ClassTeacherAssignment,
+    Province, District,
 )
 
 
@@ -483,7 +484,82 @@ class SchoolService:
     def _ser_school(self, s: School) -> dict:
         return {"id": str(s.id), "name": s.name, "country": s.country,
                 "timezone": s.timezone, "is_active": s.is_active,
+                "province_code": getattr(s, "province_code", None),
+                "district_code": getattr(s, "district_code", None),
+                "school_type": getattr(s, "school_type", None),
+                "principal_name": getattr(s, "principal_name", None),
+                "address": getattr(s, "address", None),
+                "phone": getattr(s, "phone", None),
+                "email": getattr(s, "email", None),
+                "founded_year": getattr(s, "founded_year", None),
                 "created_at": s.created_at.isoformat() if s.created_at else None}
+
+    # ───────────── Province / District ─────────────
+
+    def list_provinces(self) -> list[dict]:
+        rows = self.db.query(Province).order_by(Province.name).all()
+        return [self._ser_province(p) for p in rows]
+
+    def get_province(self, code: str) -> Optional[dict]:
+        p = self.db.query(Province).filter(Province.code == code).first()
+        return self._ser_province(p) if p else None
+
+    def list_districts(self, province_code: Optional[str] = None) -> list[dict]:
+        q = self.db.query(District)
+        if province_code:
+            q = q.filter(District.province_code == province_code)
+        return [self._ser_district(d) for d in q.order_by(District.name).all()]
+
+    def update_school_geo(self, school_id: uuid.UUID,
+                          province_code: Optional[str] = None,
+                          district_code: Optional[str] = None,
+                          school_type: Optional[str] = None,
+                          principal_name: Optional[str] = None,
+                          address: Optional[str] = None,
+                          phone: Optional[str] = None,
+                          email: Optional[str] = None,
+                          founded_year: Optional[int] = None) -> Optional[dict]:
+        s = self.db.query(School).filter(School.id == school_id).first()
+        if not s:
+            return None
+        if province_code is not None:
+            if not self.db.query(Province).filter(Province.code == province_code).first():
+                return {"error": "INVALID_PROVINCE", "message": f"Unknown province code '{province_code}'"}
+            s.province_code = province_code
+        if district_code is not None:
+            d = self.db.query(District).filter(District.code == district_code).first()
+            if not d:
+                return {"error": "INVALID_DISTRICT", "message": f"Unknown district code '{district_code}'"}
+            if s.province_code and d.province_code != s.province_code:
+                return {"error": "DISTRICT_PROVINCE_MISMATCH",
+                        "message": f"District '{district_code}' is not in province '{s.province_code}'"}
+            s.district_code = district_code
+        if school_type is not None:
+            if school_type not in ("PRIMARY", "SECONDARY", "COMBINED"):
+                return {"error": "INVALID_TYPE", "message": "school_type must be PRIMARY|SECONDARY|COMBINED"}
+            s.school_type = school_type
+        if principal_name is not None:
+            s.principal_name = principal_name
+        if address is not None:
+            s.address = address
+        if phone is not None:
+            s.phone = phone
+        if email is not None:
+            s.email = email
+        if founded_year is not None:
+            s.founded_year = founded_year
+        self.db.commit()
+        self.db.refresh(s)
+        return self._ser_school(s)
+
+    def _ser_province(self, p: Province) -> dict:
+        return {"code": p.code, "name": p.name, "region": p.region,
+                "capital": p.capital, "country": p.country,
+                "created_at": p.created_at.isoformat() if p.created_at else None}
+
+    def _ser_district(self, d: District) -> dict:
+        return {"code": d.code, "name": d.name, "province_code": d.province_code,
+                "created_at": d.created_at.isoformat() if d.created_at else None}
 
     def _ser_year(self, y: AcademicYear) -> dict:
         return {"id": str(y.id), "school_id": str(y.school_id), "name": y.name,

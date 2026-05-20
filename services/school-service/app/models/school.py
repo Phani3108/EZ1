@@ -22,6 +22,32 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 
 
+class Province(Base):
+    """Reference table: Zimbabwe provinces (MoPSE codes)."""
+    __tablename__ = "provinces"
+
+    code = Column(String(8), primary_key=True)            # e.g. "HRE"
+    name = Column(String(100), nullable=False, unique=True)
+    region = Column(String(100), nullable=False)
+    capital = Column(String(100), nullable=False)
+    country = Column(String(5), nullable=False, default="ZW")
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+class District(Base):
+    """Reference table: districts under each province."""
+    __tablename__ = "districts"
+    __table_args__ = (
+        UniqueConstraint("province_code", "name", name="uq_district_province_name"),
+    )
+
+    code = Column(String(16), primary_key=True)           # e.g. "hre-cn"
+    name = Column(String(150), nullable=False)
+    province_code = Column(String(8), ForeignKey("provinces.code", ondelete="CASCADE"),
+                           nullable=False, index=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
 class School(Base):
     __tablename__ = "schools"
 
@@ -29,6 +55,17 @@ class School(Base):
     name = Column(String(255), nullable=False)
     country = Column(String(5), nullable=False, default="ZW")
     timezone = Column(String(100), nullable=False, default="Africa/Harare")
+    # Optional geography FKs (nullable so existing tenants are unaffected)
+    province_code = Column(String(8), ForeignKey("provinces.code", ondelete="SET NULL"),
+                           nullable=True, index=True)
+    district_code = Column(String(16), ForeignKey("districts.code", ondelete="SET NULL"),
+                           nullable=True, index=True)
+    school_type = Column(String(20), nullable=True)        # PRIMARY | SECONDARY | COMBINED
+    principal_name = Column(String(255), nullable=True)
+    address = Column(Text, nullable=True)
+    phone = Column(String(50), nullable=True)
+    email = Column(String(255), nullable=True)
+    founded_year = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
