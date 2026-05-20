@@ -7,7 +7,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useAuth } from "./provider";
 
 interface RouteGuardProps {
@@ -33,24 +33,32 @@ export function RouteGuard({
 }: RouteGuardProps) {
   const { isLoading, isAuthenticated, hasPermission, hasAnyPermission } = useAuth();
 
+  const allowed =
+    permissions && permissions.length > 0
+      ? anyOf
+        ? hasAnyPermission(...permissions)
+        : permissions.every((p) => hasPermission(p))
+      : true;
+
+  useEffect(() => {
+    if (isLoading) return;
+    if (!isAuthenticated) {
+      onUnauthenticated?.();
+    } else if (!allowed) {
+      onForbidden?.();
+    }
+  }, [isLoading, isAuthenticated, allowed, onUnauthenticated, onForbidden]);
+
   if (isLoading) {
     return <>{fallback ?? <DefaultLoader />}</>;
   }
 
   if (!isAuthenticated) {
-    onUnauthenticated?.();
     return <>{fallback ?? <DefaultLoader />}</>;
   }
 
-  // Permission check
-  if (permissions && permissions.length > 0) {
-    const allowed = anyOf
-      ? hasAnyPermission(...permissions)
-      : permissions.every((p) => hasPermission(p));
-    if (!allowed) {
-      onForbidden?.();
-      return <ForbiddenPage />;
-    }
+  if (!allowed) {
+    return <ForbiddenPage />;
   }
 
   return <>{children}</>;
