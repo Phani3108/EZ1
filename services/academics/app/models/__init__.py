@@ -121,6 +121,11 @@ from app.models.national_curriculum import (  # Phase 16
     NationalUnit,
     NationalTopic,
 )
+from app.models.question_bank import (  # Phase 16c
+    Question,
+    QuestionOption,
+    QuestionDraft,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -223,4 +228,7 @@ __all__ = [
     "NationalSubject",
     "NationalUnit",
     "NationalTopic",
+    "Question",
+    "QuestionOption",
+    "QuestionDraft",
 ]

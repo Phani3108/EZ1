@@ -227,9 +227,82 @@ def upgrade() -> None:
             ["national_unit_id"],
         )
 
+    # ── Phase 16c — Question Bank ──────────────────────────────────
+    if not _has("questions"):
+        op.create_table(
+            "questions",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column("school_id", sa.String(36), nullable=False),
+            sa.Column("subject_id", sa.String(36), nullable=False),
+            sa.Column("topic_ids", sa.Text(), nullable=True),
+            sa.Column("question_type", sa.String(16), nullable=False),
+            sa.Column("text", sa.Text(), nullable=False),
+            sa.Column("correct_answer_text", sa.String(255), nullable=True),
+            sa.Column("difficulty", sa.Integer(), nullable=False, server_default="3"),
+            sa.Column("status", sa.String(16), nullable=False, server_default="published"),
+            sa.Column("owner_user_id", sa.String(36), nullable=False),
+            sa.Column("approved_by_hod_id", sa.String(36), nullable=True),
+            sa.Column("approved_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("attempts_count", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("correct_count", sa.Integer(), nullable=False, server_default="0"),
+            sa.Column("created_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("updated_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        op.create_index("ix_questions_school_subject", "questions",
+                        ["school_id", "subject_id"])
+        op.create_index("ix_questions_school_status", "questions",
+                        ["school_id", "status"])
+
+    if not _has("question_options"):
+        op.create_table(
+            "question_options",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column("question_id", sa.String(36),
+                      sa.ForeignKey("questions.id", ondelete="CASCADE"),
+                      nullable=False),
+            sa.Column("label", sa.String(2), nullable=False),
+            sa.Column("text", sa.Text(), nullable=False),
+            sa.Column("is_correct", sa.Boolean(), nullable=False, server_default=sa.text("false")),
+            sa.Column("sequence_order", sa.Integer(), nullable=False, server_default="0"),
+            sa.UniqueConstraint("question_id", "label",
+                                name="uq_question_options_label"),
+        )
+        op.create_index("ix_question_options_question_id", "question_options",
+                        ["question_id"])
+
+    if not _has("question_drafts"):
+        op.create_table(
+            "question_drafts",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column("school_id", sa.String(36), nullable=False),
+            sa.Column("subject_id", sa.String(36), nullable=False),
+            sa.Column("topic_ids", sa.Text(), nullable=True),
+            sa.Column("question_type", sa.String(16), nullable=False),
+            sa.Column("text", sa.Text(), nullable=False),
+            sa.Column("correct_answer_text", sa.String(255), nullable=True),
+            sa.Column("difficulty", sa.Integer(), nullable=False, server_default="3"),
+            sa.Column("options_json", sa.Text(), nullable=True),
+            sa.Column("submitted_by_user_id", sa.String(36), nullable=False),
+            sa.Column("submitted_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("review_status", sa.String(16), nullable=False, server_default="pending"),
+            sa.Column("reviewed_by_user_id", sa.String(36), nullable=True),
+            sa.Column("reviewed_at", sa.DateTime(timezone=True), nullable=True),
+            sa.Column("rejection_reason", sa.String(200), nullable=True),
+            sa.Column("approved_question_id", sa.String(36), nullable=True),
+        )
+        op.create_index("ix_question_drafts_school_status", "question_drafts",
+                        ["school_id", "review_status"])
+        op.create_index("ix_question_drafts_submitted_by", "question_drafts",
+                        ["submitted_by_user_id"])
+
 
 def downgrade() -> None:
     for t in (
+        "question_drafts", "question_options", "questions",
         "national_topics", "national_units", "national_subjects",
         "curriculum_topics", "curriculum_units",
     ):
