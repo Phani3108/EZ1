@@ -141,7 +141,7 @@ async def import_students_csv(
                 # Create parent if provided
                 if row.get("parent_first_name") and row.get("parent_last_name"):
                     _create_parent_for_student(
-                        svc, school_id, result["id"], row, current_user["sub"]
+                        svc, school_id, result["id"], row, current_user["sub"], db,
                     )
 
         except Exception as e:
@@ -174,20 +174,60 @@ def _validate_row(row: dict, row_num: int) -> list[dict]:
     return errors
 
 
-def _create_parent_for_student(svc, school_id, student_id, row, actor_id):
+def _create_parent_for_student(svc, school_id, student_id, row, actor_id, db: Session):
+    """Phase 15 / I-007: in addition to creating the Parent row + linking
+    it to the student, also queue an `InviteRequest` so the admin
+    can dispatch a "set your password" message to this parent. If
+    only a phone or only an email is supplied, the request still
+    queues — the dispatcher picks whichever channel matches.
+
+    `db` is now passed in so we can write the InviteRequest row in
+    the same transaction.
+    """
+    from app.models.onboarding import InviteRequest
+
+    phone = row.get("parent_phone", "").strip()
+    email = row.get("parent_email", "").strip()
+
     try:
         parent = svc.create_parent(
             school_id=school_id,
             first_name=row["parent_first_name"].strip(),
             last_name=row["parent_last_name"].strip(),
-            phone=row.get("parent_phone", "").strip() or "+263700000000",
-            email=row.get("parent_email", "").strip() or None,
+            phone=phone or "+263700000000",
+            email=email or None,
             relationship_type="GUARDIAN",
         )
         if parent and "id" in parent:
             svc.link_parent_to_student(student_id, parent["id"], school_id)
     except Exception:
-        pass  # Parent creation is best-effort during import
+        # Parent creation is best-effort during import — but we still
+        # queue the invite so the admin has a record.
+        pass
+
+    # Queue the invitation regardless of whether Parent row creation
+    # succeeded — the dispatcher will look up or recreate the Parent
+    # row when identity activates the user.
+    if phone or email:
+        try:
+            ir = InviteRequest(
+                id=uuid.uuid4(),
+                school_id=school_id,
+                role="Parent",
+                full_name=f"{row['parent_first_name'].strip()} "
+                          f"{row['parent_last_name'].strip()}".strip(),
+                contact_email=email or None,
+                contact_phone=phone or None,
+                target_resource_id=str(student_id),
+                target_resource_type="student",
+                requested_by_user_id=uuid.UUID(actor_id) if isinstance(actor_id, str) else actor_id,
+            )
+            db.add(ir)
+            db.commit()
+        except Exception:
+            # InviteRequest queue write is also best-effort; the
+            # student row + parent row are the primary outputs.
+            pass
 
 
 # ─── Bulk Enroll ───

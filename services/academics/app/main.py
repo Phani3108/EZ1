@@ -143,6 +143,18 @@ from app.api.special_routes import router as _special_router  # noqa: E402
 # Phase 14: Ministry (MoPSE) cross-school aggregation (read-only).
 from app.api.ministry_routes import router as _ministry_router  # noqa: E402
 
+# Phase 15: onboarding — student/parent draft queue.
+from app.api.drafts import router as _drafts_router  # noqa: E402
+
+# Phase 15: onboarding — bulk teacher import + invite-request queue.
+from app.api.bulk_teachers import router as _bulk_teachers_router  # noqa: E402
+
+# Phase 15: onboarding — readiness checklist + Go Live gate.
+from app.api.onboarding_routes import router as _onboarding_router  # noqa: E402
+
+# Phase 15: CSV/Excel template downloads for the setup wizard.
+from app.api.templates_routes import router as _templates_router  # noqa: E402
+
 app.include_router(_school_router, prefix="/api/v1")
 app.include_router(_student_router, prefix="/api/v1")
 app.include_router(_bulk_router, prefix="/api/v1")
@@ -162,3 +174,7 @@ app.include_router(_ops_router, prefix="/api/v1")
 app.include_router(_community_router, prefix="/api/v1")
 app.include_router(_special_router, prefix="/api/v1")
 app.include_router(_ministry_router, prefix="/api/v1")
+app.include_router(_drafts_router, prefix="/api/v1")
+app.include_router(_bulk_teachers_router, prefix="/api/v1")
+app.include_router(_onboarding_router, prefix="/api/v1")
+app.include_router(_templates_router, prefix="/api/v1")

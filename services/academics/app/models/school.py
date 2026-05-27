@@ -13,6 +13,7 @@ Key constraints:
 
 import uuid
 from datetime import date, datetime, timezone
+import sqlalchemy as sa
 from sqlalchemy import (
     Column, String, Boolean, DateTime, Date, Integer, ForeignKey,
     UniqueConstraint, Text, CheckConstraint,
@@ -85,6 +86,16 @@ class School(Base):
     email = Column(String(255), nullable=True)
     founded_year = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Phase 15 — Go Live gate. The school exists in the DB once
+    # created (during onboarding) but its dashboards remain in
+    # "setup" mode until is_live flips. Auto-managed by
+    # `POST /api/v1/onboarding/go-live` (which asserts every step on
+    # the readiness checklist is green before flipping).
+    is_live = Column(
+        Boolean, default=False, nullable=False,
+        server_default=sa.text("false"),
+    )
+    went_live_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)

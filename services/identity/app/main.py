@@ -44,8 +44,15 @@ from app.api.auth import router as auth_router
 from app.api.rbac import router as rbac_router
 from app.api.forgot_password import router as forgot_router
 from app.api.preferences import router as preferences_router
+# Phase 15a — Invitation flow (pre-stage users + activate via token/code).
+from app.api.invitations import router as invitations_router
+
+# Ensure Invitation model is registered with Base.metadata so tests
+# that build the schema from metadata pick it up.
+from app.models.invitation import Invitation  # noqa: F401
 
 app.include_router(auth_router, prefix="/api/v1")
 app.include_router(rbac_router, prefix="/api/v1")
 app.include_router(forgot_router, prefix="/api/v1")
 app.include_router(preferences_router, prefix="/api/v1")
+app.include_router(invitations_router, prefix="/api/v1")

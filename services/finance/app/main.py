@@ -24,11 +24,14 @@ from app.api.audit_routes import router as audit_router
 from app.api.payment_config_routes import router as payment_config_router
 # Phase 14 / M-003 — Ministry cross-school fees aggregation (read-only).
 from app.api.ministry_routes import router as ministry_router
+# Phase 15 — Bulk fee-structure import.
+from app.api.bulk_fees import router as bulk_fees_router
 app.include_router(router, prefix="/api/v1")
 app.include_router(payments_router, prefix="/api/v1")
 app.include_router(audit_router, prefix="/api/v1")
 app.include_router(payment_config_router, prefix="/api/v1")
 app.include_router(ministry_router, prefix="/api/v1")
+app.include_router(bulk_fees_router, prefix="/api/v1")
 # NOTE: diagnostics is mounted WITHOUT the /api/v1 prefix because the gateway
 # blocks any external `/internal/*` traffic. Only the gateway can call it.
 app.include_router(diagnostics_router)

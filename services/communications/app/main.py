@@ -39,6 +39,10 @@ app.include_router(attachment_router, prefix="/api/v1")
 from app.api.notification_config_routes import router as notification_config_router
 app.include_router(notification_config_router, prefix="/api/v1")
 
+# Phase 15 — invite dispatch + outbox.
+from app.api.invite_routes import router as invite_router
+app.include_router(invite_router, prefix="/api/v1")
+
 # Make sure the WhatsApp model is registered with Base before any
 # `create_all` (used by tests and dev bootstraps) sweeps the metadata.
 from app.models import whatsapp as _whatsapp_models  # noqa: F401
@@ -50,3 +54,5 @@ from app.models import messaging as _messaging_models  # noqa: F401
 from app.models import attachment as _attachment_models  # noqa: F401
 # Phase 12c — notification provider config table.
 from app.models import notification_config as _notification_config_models  # noqa: F401
+# Phase 15 — invite outbox table.
+from app.models import invite_outbox as _invite_outbox_models  # noqa: F401

@@ -576,6 +576,39 @@ Teacher-side rules: RULE-3 (read-only fees on teacher's student view) and RULE-4
 
 ---
 
+## §15 First-time Onboarding (Phase 15)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| I-001 | high | Invitation model + endpoints in identity | 15a | ✅ closed 2026-05-27 (`services/identity/app/models/invitation.py` + `app/api/invitations.py`; token + manual-code paths) |
+| I-002 | high | User row extension (nullable password, invited_at, activated_at, phone) | 15a | ✅ closed 2026-05-27 (Alembic migration `003_invitations`) |
+| I-003 | high | Provisioner + EduZimOps roles + permission grants | 15a | ✅ closed 2026-05-27 (`scripts/seed-baseline.sh`; ADR 021) |
+| I-004 | high | StudentDraft / ParentDraft + admin approval flow | 15a | ✅ closed 2026-05-27 (`services/academics/app/models/onboarding.py` + `app/api/drafts.py`) |
+| I-005 | high | Bulk teacher import + parent invite queue | 15a | ✅ closed 2026-05-27 (`services/academics/app/api/bulk_teachers.py`; existing bulk.py extended) |
+| I-006 | medium | Bulk fee structure import | 15a | ✅ closed 2026-05-27 (`services/finance/app/api/bulk_fees.py`) |
+| I-007 | high | InviteDispatcher + InviteOutbox + templates | 15a | ✅ closed 2026-05-27 (`services/communications/app/services/invite_dispatcher.py` + `models/invite_outbox.py` + `templates/invite.py`; SMS/WhatsApp/Email/Manual priority chain) |
+| O-001 | high | Onboarding readiness API (7 checks) | 15a | ✅ closed 2026-05-27 (`services/academics/app/api/onboarding_routes.py`) |
+| O-002 | medium | CSV/Excel template-download endpoints | 15a | ✅ closed 2026-05-27 (`services/academics/app/api/templates_routes.py`) |
+| O-003 | high | School.is_live + Go Live gate | 15a | ✅ closed 2026-05-27 (academics migration `2026_05_27_020`; POST /onboarding/go-live audit-logged) |
+| U-001 | high | UI primitives (Stepper, ChecklistItem, ReadinessBar, InvitationStatusPill) | 15b | ✅ closed 2026-05-27 (`packages/ui/src/components/{stepper,checklist-item,readiness-bar,invitation-status-pill}.tsx`) |
+| U-002 | high | admin-web setup wizard (9 pages) | 15b | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(admin)/setup/**`) |
+| U-003 | high | Parent + Teacher invite-landing pages | 15c | ✅ closed 2026-05-27 (`apps/parent-web/src/app/invite/[token]/page.tsx`, `apps/parent-web/src/app/invite/code/page.tsx`, `apps/teacher-web/src/app/invite/[token]/page.tsx`) |
+| U-004 | medium | Ministry onboarding queue + "New School" modal | 15d | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(ministry)/ministry/onboarding/page.tsx`) |
+| A-021 | high | ADR 021 — onboarding + Provisioner | 15e | ✅ closed 2026-05-27 (`docs/decisions/021-onboarding-and-provisioner-role.md`) |
+| G-001 | high | Gateway RBAC + service routing for invitations / drafts / onboarding / bulk / templates | 15a | ✅ closed 2026-05-27 (`services/api-gateway/app/routes.py`) |
+
+**Gate**: ✅ A new school can be onboarded entirely from the wizard:
+EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activates → uploads teachers + students CSV → parent invites auto-queued → admin reads manual code over phone OR provider delivers SMS/WhatsApp/Email → parent lands on /invite/[token] → sets password → lands on /home with children pre-listed → admin clicks Go Live → School.is_live flips. All steps audit-logged with no PII in target/details (rejection reason is the single exception). Backend regression: 681 tests across academics + identity + finance + communications.
+
+**Open follow-ups** (not blocking 15 closeout):
+- Server-side Excel parsing for bulk endpoints.
+- Excel/PDF round-trip export of imported data.
+- Per-school channel-config UX.
+- Phone E.164 normaliser library.
+- OCR for scanned PDF class lists.
+
+---
+
 ## §11 Cross-cutting Quality
 
 | ID | Title | Phase | Status |

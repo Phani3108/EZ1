@@ -37,9 +37,22 @@ class User(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     email = Column(String(255), nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    # Phase 15a / I-002: password_hash is NULLABLE — an invited-but-not-
+    # yet-activated user has none. Login service refuses to authenticate
+    # users with NULL password_hash (see AuthService.login).
+    password_hash = Column(String(255), nullable=True)
+    # Phase 15a / I-002: phone is captured at invitation-time (preferred
+    # SMS / WhatsApp address). Stored unhashed for delivery purposes but
+    # NEVER logged in audit details.
+    phone = Column(String(32), nullable=True, index=True)
     school_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Phase 15a / I-002: lifecycle timestamps for the invitation flow.
+    # `invited_at` set when an Invitation row is created targeting this
+    # user; `activated_at` set when the invite token is accepted and
+    # the password_hash is written.
+    invited_at = Column(DateTime(timezone=True), nullable=True)
+    activated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc),
                         onupdate=lambda: datetime.now(timezone.utc), nullable=False)

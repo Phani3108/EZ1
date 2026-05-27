@@ -114,6 +114,24 @@ SERVICE_ROUTES = {
     "/api/v1/ministry/fees": ("FINANCE_SERVICE_URL", "finance"),
     "/api/v1/ministry": ("ACADEMICS_SERVICE_URL", "academics"),
 
+    # Phase 15 — Onboarding (setup wizard) endpoints.
+    # Invitations live in identity; readiness + drafts + bulk-teachers
+    # + templates live in academics; bulk-fees lives in finance; invite
+    # dispatch + outbox live in communications.
+    "/api/v1/invitations": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/drafts": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/onboarding": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/templates": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/bulk/teachers": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/bulk/invite-requests": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/bulk/fee-structures": ("FINANCE_SERVICE_URL", "finance"),
+    # Communications-side onboarding endpoints live under /comm/* to
+    # avoid path collision with identity's /invitations/* — the gateway
+    # iterates SERVICE_ROUTES by insertion order, and we want every
+    # identity invitation path to keep going to identity.
+    "/api/v1/comm/invitations": ("COMMUNICATIONS_SERVICE_URL", "communications"),
+    "/api/v1/comm/invite-outbox": ("COMMUNICATIONS_SERVICE_URL", "communications"),
+
     # Phase 12d/e/f — parent-life surfaces (all in academics).
     "/api/v1/school-events": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/performance-opt-out": ("ACADEMICS_SERVICE_URL", "academics"),
@@ -434,6 +452,46 @@ RBAC_MAP = [
     ("GET", "/api/v1/ministry/donors", "ministry:read"),
     # M-011 — UNESCO / UNICEF export snapshot.
     ("GET", "/api/v1/ministry/exports", "ministry:read"),
+
+    # Phase 15 — Onboarding (setup wizard) RBAC.
+    # Invitations: write paths gated on invite:write; the public
+    # preview / accept / by-code paths bypass via "authenticated"
+    # being a no-token-required marker handled by the gateway's
+    # public-paths config (see auth.py allowlist). We keep the
+    # endpoints listed here so the RBAC map covers everything.
+    # Public-by-design (no auth) — these let parents/teachers land on
+    # the invite-claim page without a JWT. The token / 6-digit code IS
+    # the auth here, validated server-side by identity.
+    ("GET",    "/api/v1/invitations/by-code", None),
+    ("POST",   "/api/v1/invitations/by-code", None),
+    # Token-pathed public endpoints. Use a sentinel-style longer prefix
+    # so they match before the bare `/invitations` write rule below.
+    # NOTE: startswith() ordering — keep the more-specific entries first.
+    ("GET",    "/api/v1/invitations/", None),   # preview path: /{token}/preview
+    ("POST",   "/api/v1/invitations/", None),   # accept / resend (resend needs auth, allow but rely on identity to enforce)
+    ("POST",   "/api/v1/invitations", "invite:write"),
+    ("GET",    "/api/v1/invitations", "invite:write"),  # list (auth required)
+    # Drafts.
+    ("POST",   "/api/v1/drafts/students", "student:draft"),
+    ("GET",    "/api/v1/drafts/students", "school:manage"),
+    ("POST",   "/api/v1/drafts/students/", "school:manage"),
+    ("GET",    "/api/v1/drafts/parents", "school:manage"),
+    ("POST",   "/api/v1/drafts/parents/", "school:manage"),
+    # Onboarding readiness + Go Live.
+    ("GET",    "/api/v1/onboarding/status", "school:manage"),
+    ("POST",   "/api/v1/onboarding/go-live", "school:manage"),
+    # Templates — any authenticated user can download.
+    ("GET",    "/api/v1/templates", "authenticated"),
+    # Bulk imports.
+    ("POST",   "/api/v1/bulk/teachers", "school:manage"),
+    ("POST",   "/api/v1/bulk/fee-structures", "school:manage"),
+    ("GET",    "/api/v1/bulk/invite-requests", "school:manage"),
+    ("POST",   "/api/v1/bulk/invite-requests/", "school:manage"),
+    # Invite outbox (communications) — admin reads its own school's
+    # outbox; worker uses internal-only paths.
+    ("GET",    "/api/v1/comm/invite-outbox", "school:manage"),
+    ("POST",   "/api/v1/comm/invite-outbox/", "school:manage"),
+    ("POST",   "/api/v1/comm/invitations/dispatch", "invite:write"),
 
     # Phase 12d/e/f — parent-life surfaces.
     # School events — anyone authenticated reads; admin writes.

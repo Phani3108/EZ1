@@ -107,6 +107,11 @@ from app.models.special import (  # Phase 13e
     BoardingAssignment,
     Campus,
 )
+from app.models.onboarding import (  # Phase 15
+    StudentDraft,
+    ParentDraft,
+    InviteRequest,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -199,4 +204,8 @@ __all__ = [
     "BoardingRoom",
     "BoardingAssignment",
     "Campus",
+    # Phase 15
+    "StudentDraft",
+    "ParentDraft",
+    "InviteRequest",
 ]

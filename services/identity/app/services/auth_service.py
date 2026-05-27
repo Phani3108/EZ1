@@ -38,7 +38,11 @@ class AuthService:
         # Find user (we try all schools — email+school_id is unique, but login is email-only)
         user = self.db.query(User).filter(User.email == data.email).first()
 
-        if not user or not verify_password(data.password, user.password_hash):
+        # Phase 15a / I-002: users invited but not yet activated have
+        # `password_hash = NULL`. Refuse them with the same generic
+        # `invalid_credentials` failure so this isn't a hint that the
+        # email exists.
+        if not user or user.password_hash is None or not verify_password(data.password, user.password_hash):
             self._log_login(data.email, None, False, ip_address, user_agent, "invalid_credentials")
             self.db.commit()  # Persist audit log entry
             return None  # Caller handles 401

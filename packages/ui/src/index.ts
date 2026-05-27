@@ -38,6 +38,16 @@ export type { PersonaThemeName } from "./tokens";
 export { BulkUpload } from "./components/bulk-upload";
 export type { BulkUploadResult } from "./components/bulk-upload";
 
+/* ─── Onboarding (Phase 15) ─── */
+export { ChecklistItem } from "./components/checklist-item";
+export type { ChecklistItemProps, ChecklistStatus } from "./components/checklist-item";
+export { Stepper } from "./components/stepper";
+export type { StepperProps, StepperStep } from "./components/stepper";
+export { ReadinessBar } from "./components/readiness-bar";
+export type { ReadinessBarProps } from "./components/readiness-bar";
+export { InvitationStatusPill } from "./components/invitation-status-pill";
+export type { InvitationStatusPillProps, InvitationStatus } from "./components/invitation-status-pill";
+
 /* ─── Friendly errors (universal) ─── */
 export { FriendlyError } from "./components/friendly-error";
 export type { FriendlyErrorProps } from "./components/friendly-error";
