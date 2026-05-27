@@ -54,14 +54,15 @@ jobs:
       fail-fast: false
       matrix:
         service:
-          - auth-service
-          - school-service
-          - student-service
-          - attendance-service
-          - fees-service
-          - communication-service
+          # PH2-12: post-consolidation matrix. school-service / student-service /
+          # attendance-service / assessment-service folded into academics
+          # (PH2-6 → PH2-9). notification-worker folded into communications
+          # (PH2-4). reporting-service still here as the Kafka consumer.
+          - identity
+          - academics
+          - finance
+          - communications
           - reporting-service
-          - assessment-service
     steps:
       - uses: actions/checkout@v4
 
@@ -95,16 +96,14 @@ jobs:
     strategy:
       matrix:
         service:
+          # PH2-12: matches the post-consolidation backend list above
+          # plus api-gateway. Five service images total.
           - api-gateway
-          - auth-service
-          - school-service
-          - student-service
-          - attendance-service
-          - fees-service
-          - communication-service
+          - identity
+          - academics
+          - finance
+          - communications
           - reporting-service
-          - assessment-service
-          - notification-worker
     steps:
       - uses: actions/checkout@v4
 

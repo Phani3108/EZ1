@@ -1,5 +1,18 @@
 # EduZim — Education Operating System for Emerging Nations
 
+> [!CAUTION]
+> **This document is the long-term aspirational vision, not current build status.**
+>
+> Many features described below — AI lesson planning, biometric attendance, edge-server hardware tiers, national intelligence layer, hybrid cloud/edge architecture, "40–60% workload reduction" — are **not built**. Some are planned (see `task.md`); some are aspirational; some are marketing language we should not repeat in decks or to schools.
+>
+> **For what is actually verified, partial, or unbuilt, see [`STATUS.md`](./STATUS.md).**
+>
+> For locked design decisions (e.g., integration-only via Provider interfaces, not native payments/SMS/content), see [`docs/decisions/`](./docs/decisions/).
+>
+> When pitching, demoing, or onboarding schools, treat `STATUS.md` as authoritative. This document remains here as the north-star horizon — useful, but not factual about today.
+
+---
+
 > **Vision**: Build the definitive education infrastructure platform for Sub-Saharan Africa — starting with Zimbabwe and Zambia, expanding across East and Southern Africa.
 
 Built for **low bandwidth today**. Ready for **high connectivity tomorrow**.

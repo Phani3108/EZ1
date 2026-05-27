@@ -1,5 +1,16 @@
 /**
- * Attendance Tab — 10B-1C3 + 10B-4A offline queue.
+ * Attendance Tab — 10B-1C3 + 10B-4A offline queue + Phase 11a (T-001).
+ *
+ * T-001 (bulk-mark polish): "Mark all present / absent" buttons exist as
+ * a fast-path for the common homeroom case ("everyone showed up, save in
+ * one click"). The previous implementation silently destroyed manual marks
+ * if the teacher clicked the wrong button — they'd lose every individual
+ * Absent they'd already entered with no recovery path. Phase 11a closes
+ * that with an undo snapshot (`previousStatuses`) and an inline Undo
+ * affordance that's visible for 10 seconds after each bulk op. The button
+ * labels also now show the affected count ("Mark all 30 present") so the
+ * blast radius is obvious before the click.
+ *
  * Date picker, status grid per student, bulk submit via offline queue.
  * Loads existing records from GET /attendance/daily/records.
  * Device ID: "teacher-web:<user_id>"
@@ -7,7 +18,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { useAuth } from "@eduzim/auth";
 import { Card, CardContent, Button } from "@eduzim/ui";
@@ -19,6 +30,7 @@ import {
   Save,
   CheckCircle,
   AlertCircle,
+  Undo2,
 } from "lucide-react";
 import { attendance } from "@/lib/api";
 import { useApiQuery } from "@/hooks/use-api-query";
@@ -46,6 +58,12 @@ export function AttendanceTab({
   const t = useTranslations("classes");
   const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(defaultDate);
+  // T-002 (Phase 11a). 0 = "Day" (the legacy / primary-school homeroom
+  // mark). 1..8 = a specific period in the school's schedule. The
+  // backend uses (school_id, student_id, date, period_number) as the
+  // upsert key, so each period gets its own row. Existing primary-mode
+  // schools leave this at 0 and behave exactly like pre-T-002.
+  const [selectedPeriod, setSelectedPeriod] = useState<number>(0);
   const [statuses, setStatuses] = useState<Record<string, StatusValue>>({});
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -53,7 +71,22 @@ export function AttendanceTab({
     null
   );
 
-  // Fetch existing attendance records for this date+class
+  // T-001 undo state: snapshot of `statuses` taken right before a bulk op.
+  // Cleared after 10s via `undoTimeoutRef` (or immediately on user undo /
+  // any subsequent edit). We keep the count of affected rows so the Undo
+  // pill can show "Undo (30 changed)" — gives the teacher confidence the
+  // recovery is real, not a no-op.
+  const [undoSnapshot, setUndoSnapshot] = useState<{
+    previous: Record<string, StatusValue>;
+    affected: number;
+    action: "present" | "absent";
+  } | null>(null);
+  const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Fetch existing attendance records for this date+class+period.
+  // T-002: period_number scopes the fetch so the grid shows only the
+  // selected period's marks. The default (period 0) is the legacy
+  // daily/homeroom view — behaves exactly like before T-002.
   const {
     data: existingRecords,
     isLoading: recordsLoading,
@@ -63,8 +96,9 @@ export function AttendanceTab({
       attendance.dailyRecords({
         date: selectedDate,
         class_id: classId,
+        period_number: String(selectedPeriod),
       }),
-    [selectedDate, classId]
+    [selectedDate, classId, selectedPeriod]
   );
 
   // Merge existing records into status map when they load
@@ -90,27 +124,82 @@ export function AttendanceTab({
     setSaveResult(null);
   }, [existingRecords, rosterStudents]);
 
+  const clearUndo = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+    setUndoSnapshot(null);
+  }, []);
+
   const setStatus = useCallback(
     (studentId: string, status: StatusValue) => {
       setStatuses((prev) => ({ ...prev, [studentId]: status }));
       setIsDirty(true);
       setSaveResult(null);
+      // Any individual edit invalidates the bulk-undo snapshot — the user
+      // is now diverging from the bulk-applied state, so "undo" wouldn't
+      // restore something meaningful.
+      clearUndo();
     },
-    []
+    [clearUndo]
   );
 
   const markAll = useCallback(
     (status: StatusValue) => {
+      // Snapshot the current statuses BEFORE overwriting so we can offer
+      // an undo. Count how many rows would actually change — a teacher who
+      // clicks "Mark all present" when everyone is already P sees affected=0
+      // and the Undo pill won't appear (nothing to undo).
+      const previous = { ...statuses };
+      let affected = 0;
       const updated: Record<string, StatusValue> = {};
       rosterStudents.forEach(({ student }) => {
+        const before = statuses[student.id] ?? "P";
+        if (before !== status) affected += 1;
         updated[student.id] = status;
       });
       setStatuses(updated);
       setIsDirty(true);
       setSaveResult(null);
+
+      // No-op bulk (everyone already in target state) — don't show undo.
+      if (affected === 0) {
+        clearUndo();
+        return;
+      }
+
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+      setUndoSnapshot({
+        previous,
+        affected,
+        action: status === "P" ? "present" : "absent",
+      });
+      undoTimeoutRef.current = setTimeout(() => {
+        setUndoSnapshot(null);
+        undoTimeoutRef.current = null;
+      }, 10_000);
     },
-    [rosterStudents]
+    [rosterStudents, statuses, clearUndo]
   );
+
+  const undoBulk = useCallback(() => {
+    if (!undoSnapshot) return;
+    setStatuses(undoSnapshot.previous);
+    clearUndo();
+    // Note: we leave `isDirty` as-is. If the user had unsaved changes
+    // before the bulk op, those changes are now restored — still dirty.
+    // If they didn't, the snapshot equals the loaded state — but we leave
+    // dirty=true rather than try to deep-compare; worst case the user
+    // saves an idempotent no-op batch (which the sync endpoint dedups).
+  }, [undoSnapshot, clearUndo]);
+
+  // Clean up the undo timer on unmount.
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) clearTimeout(undoTimeoutRef.current);
+    };
+  }, []);
 
   // Summary counts
   const summary = useMemo(() => {
@@ -136,11 +225,15 @@ export function AttendanceTab({
     const syncBatchId = `tw-${classId}-${selectedDate}-${Date.now()}`;
 
     const events: AttendanceSyncEvent[] = rosterStudents.map(({ student }) => ({
-      client_event_id: `${student.id}-${selectedDate}-${Date.now()}`,
+      // Client event id now includes the period so two periods don't
+      // collide on the dedup index (the dedup is keyed by client_event_id
+      // alone, not by the row's natural key).
+      client_event_id: `${student.id}-${selectedDate}-p${selectedPeriod}-${Date.now()}`,
       class_id: classId,
       student_id: student.id,
       date: selectedDate,
       status: statuses[student.id] || "P",
+      period_number: selectedPeriod,
       last_modified_at: now,
     }));
 
@@ -152,9 +245,14 @@ export function AttendanceTab({
     };
 
     try {
+      // BUG-005 fix: schoolId must come from the authenticated user, not "".
+      // The offline sync handler tags each queued action with the school it
+      // belongs to so cross-school replay is impossible. An empty string here
+      // meant the sync engine had to reverse-infer school from elsewhere or
+      // would tag everything as ""-school.
       await enqueueOffline({
         type: "ATTENDANCE",
-        schoolId: "",
+        schoolId: user.school_id,
         userId: user.id,
         deviceId,
         payload,
@@ -186,7 +284,7 @@ export function AttendanceTab({
 
   return (
     <div className="space-y-4">
-      {/* Date picker + summary */}
+      {/* Date picker + period selector + summary */}
       <div className="flex flex-wrap items-center gap-3">
         <input
           type="date"
@@ -194,7 +292,26 @@ export function AttendanceTab({
           onChange={(e) => setSelectedDate(e.target.value)}
           className="rounded-md border px-3 py-2 text-sm bg-background"
           max={new Date().toISOString().slice(0, 10)}
+          data-testid="attendance-date-input"
         />
+        {/* T-002 period selector. "Day" = 0 (legacy / homeroom — the
+            default for primary schools and any school that hasn't opted
+            in to per-period marking). Periods 1..8 cover a typical
+            secondary-school timetable. */}
+        <select
+          value={String(selectedPeriod)}
+          onChange={(e) => setSelectedPeriod(Number(e.target.value))}
+          className="rounded-md border px-3 py-2 text-sm bg-background"
+          data-testid="attendance-period-select"
+          aria-label={t("periodLabel")}
+        >
+          <option value="0">{t("periodDay")}</option>
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((p) => (
+            <option key={p} value={String(p)}>
+              {t("periodN", { n: p })}
+            </option>
+          ))}
+        </select>
         <div className="flex items-center gap-3 text-xs">
           <span className="flex items-center gap-1 text-green-600">
             <Check className="h-3.5 w-3.5" /> {summary.P}
@@ -208,24 +325,41 @@ export function AttendanceTab({
         </div>
       </div>
 
-      {/* Mark all buttons */}
-      <div className="flex gap-2">
+      {/* Mark all buttons — T-001. Labels include the affected count so
+          the blast radius is visible before the click; undo affordance
+          appears for 10s after a destructive op. */}
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           variant="outline"
           size="sm"
           className="text-xs"
           onClick={() => markAll("P")}
+          data-testid="attendance-bulk-present"
         >
-          {t("markAll")} {t("present")}
+          <Check className="h-3.5 w-3.5 mr-1" />
+          {t("markAllPresentN", { n: rosterStudents.length })}
         </Button>
         <Button
           variant="outline"
           size="sm"
           className="text-xs"
           onClick={() => markAll("A")}
+          data-testid="attendance-bulk-absent"
         >
-          {t("markAll")} {t("absent")}
+          <X className="h-3.5 w-3.5 mr-1" />
+          {t("markAllAbsentN", { n: rosterStudents.length })}
         </Button>
+        {undoSnapshot && (
+          <button
+            type="button"
+            onClick={undoBulk}
+            data-testid="attendance-bulk-undo"
+            className="inline-flex items-center gap-1 rounded-md border border-blue-300 bg-blue-50 px-2 py-1 text-xs text-blue-700 hover:bg-blue-100 transition-colors"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+            {t("undoBulkN", { n: undoSnapshot.affected })}
+          </button>
+        )}
       </div>
 
       {/* Student grid */}

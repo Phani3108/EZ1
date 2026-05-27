@@ -1,4 +1,102 @@
 {
+  "parentMessages": {
+    "title": "Imilayezo",
+    "description": "Khuluma labafundisi bomntwana wakho.",
+    "loading": "Iyalayitsha…",
+    "noThreads": "Akukho zingxoxo okwamanje. Qala ngokufaka i-ID yomfundisi ngezansi.",
+    "teacherIdPlaceholder": "I-ID yomfundisi (esivela esikolweni)",
+    "startThread": "Qala",
+    "teacherN": "Umfundisi · {id}",
+    "noMessagesYet": "Akukho mlayezo okwamanje",
+    "threadTitle": "Ingxoxo",
+    "composePlaceholder": "Bhala umlayezo…",
+    "send": "Thumela"
+  },
+  "parentEvents": {
+    "title": "Izenzakalo",
+    "description": "Izinsuku zezemidlalo, izivivinyo, amaholide, lemihlangano.",
+    "loading": "Iyalayitsha…",
+    "empty": "Akukho zenzakalo ezihleliwe."
+  },
+  "parentConnect": {
+    "title": "Xhumana",
+    "description": "Khuluma lesikolo: bhuka umhlangano, sayina iphepha lemvumo, veza ukukhathazeka.",
+    "loading": "Iyalayitsha…",
+    "cancel": "Khansela",
+    "grievances": {
+      "title": "Ukukhathazeka",
+      "create": "Veza ukukhathazeka",
+      "submit": "Thumela",
+      "empty": "Akukho kukhathazeka okuthunyelwe.",
+      "subjectPlaceholder": "Isihloko (esifushane)",
+      "bodyPlaceholder": "Chaza ukukhathazeka kwakho…",
+      "resolution": "Isixazululo: {notes}"
+    },
+    "conferences": {
+      "title": "Umhlangano wabazali labafundisi",
+      "hint": "Faka i-ID yomfundisi ukubona izikhathi ezikhona.",
+      "teacherIdPlaceholder": "I-ID yomfundisi",
+      "noSlots": "Akukho zikhathi ezikhona kulumfundisi.",
+      "book": "Bhuka",
+      "booked": "Kubhukiwe"
+    },
+    "slips": {
+      "title": "Amaphepha emvumo",
+      "empty": "Akukho maphepha avulekile.",
+      "deadline": "Umnqamulajuqu: {date}",
+      "respond": "Phendula",
+      "namePlaceholder": "Bhala ibizo lakho eligcweleyo njengesignature",
+      "approve": "Vumela",
+      "decline": "Yala"
+    }
+  },
+  "parentMore": {
+    "title": "Okunye",
+    "description": "Ezokuthutha, ukudla, iminikelo, ipheshana, legallery.",
+    "transport": {
+      "title": "Ezokuthutha",
+      "empty": "Akukho zindiza ezisethelwe."
+    },
+    "meal": {
+      "title": "Ikhredithi yokudla",
+      "pickChild": "Khetha umntwana kuswitcher ukubona ibhalansi.",
+      "balance": "Ibhalansi: ${amount}",
+      "topup": "Engeza"
+    },
+    "donations": {
+      "title": "Iminikelo",
+      "purposePlaceholder": "Inhloso (isib. 'umtapowezincwadi')",
+      "anonymous": "Nikela ngokungaziwa",
+      "submit": "Nikela"
+    },
+    "newsletter": {
+      "title": "Ipheshana",
+      "empty": "Akukho posts okwamanje."
+    },
+    "gallery": {
+      "title": "Igallery",
+      "empty": "Akukho zithombe okwamanje."
+    }
+  },
+  "student": {
+    "loading": "Iyalayitsha…",
+    "studentOnlyHint": "Lelikhasi ngelabafundi. Njengomzali, bona ulwazi lomntwana wakho ku-Home tab.",
+    "schedule": {
+      "title": "Ishedyuli Yami",
+      "periodsTitle": "Izikhathi",
+      "empty": "Isikolo senu asikabhalisi ishedyuli."
+    },
+    "marks": {
+      "title": "Amamaki Ami",
+      "empty": "Akukho mamaki abhalisiweyo.",
+      "absent": "Kakho",
+      "subjectN": "Isifundo {id}"
+    },
+    "assignments": {
+      "title": "Imisebenzi Yami",
+      "empty": "Akukho msebenzi okwamanje."
+    }
+  },
   "common": {
     "appName": "EduZim",
     "loading": "Iyalayitsha…",
@@ -95,7 +193,11 @@
     "ministry": "Sihambisana loMnyango Wemfundo Yamabanga Aphansi lePhezulu",
     "vision2030": "Sisekela iZimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Wonke amalungelo agcinwe.",
-    "motto": "Ubunye, Inkululeko, Umsebenzi"
+    "motto": "Ubunye, Inkululeko, Umsebenzi",
+    "privacyPolicy": "Inqubomgomo Yobumfihlo",
+    "retentionPolicy": "Ukugcinwa Kolwazi",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
   },
   "national": {
     "title": "Okwesizwe",

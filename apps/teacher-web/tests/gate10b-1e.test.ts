@@ -357,21 +357,21 @@ describe("i18n students section", () => {
   it("en.json has students section with all keys", () => {
     expect(enMessages).toHaveProperty("students");
     for (const key of requiredKeys) {
-      expect((enMessages as Record<string, Record<string, string>>).students).toHaveProperty(key);
+      expect((enMessages as unknown as Record<string, Record<string, unknown>>).students).toHaveProperty(key);
     }
   });
 
   it("sn.json has students section with all keys", () => {
     expect(snMessages).toHaveProperty("students");
     for (const key of requiredKeys) {
-      expect((snMessages as Record<string, Record<string, string>>).students).toHaveProperty(key);
+      expect((snMessages as unknown as Record<string, Record<string, unknown>>).students).toHaveProperty(key);
     }
   });
 
   it("nd.json has students section with all keys", () => {
     expect(ndMessages).toHaveProperty("students");
     for (const key of requiredKeys) {
-      expect((ndMessages as Record<string, Record<string, string>>).students).toHaveProperty(key);
+      expect((ndMessages as unknown as Record<string, Record<string, unknown>>).students).toHaveProperty(key);
     }
   });
 });

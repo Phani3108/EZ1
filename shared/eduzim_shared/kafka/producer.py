@@ -30,16 +30,27 @@ from eduzim_shared.kafka.config import KafkaConfig
 
 logger = logging.getLogger(__name__)
 
+# INFRA-022 (Phase 5): every producer created in this process registers
+# itself here so the shared app_factory lifespan can flush them on shutdown.
+# WeakValueDictionary would be ideal but consumers usually keep producers
+# as module-level singletons, so a regular dict is fine.
+_registered_producers: "dict[str, EduZimProducer]" = {}
+
 
 class EduZimProducer:
     """Production-grade Kafka producer with JSON serialization."""
 
-    def __init__(self, config: KafkaConfig):
+    def __init__(self, config: KafkaConfig, label: Optional[str] = None):
         self._config = config
+        self._label = label or f"producer-{id(self):x}"
         self._producer = Producer(config.producer_config())
+        _registered_producers[self._label] = self
         logger.info(
             "Kafka producer initialized",
-            extra={"bootstrap_servers": config.bootstrap_servers},
+            extra={
+                "bootstrap_servers": config.bootstrap_servers,
+                "label": self._label,
+            },
         )
 
     def publish(

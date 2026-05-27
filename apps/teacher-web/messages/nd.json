@@ -22,7 +22,12 @@
   "nav": {
     "today": "Lamuhla",
     "myClasses": "Amakilasi Ami",
-    "announcements": "Izimemezelo"
+    "announcements": "Izimemezelo",
+    "messages": "Imilayezo",
+    "gradebook": "Incwadi yamamaki",
+    "plan": "Hlela",
+    "studentLife": "Impilo Yomfundi",
+    "professional": "Ubungcweti"
   },
   "login": {
     "title": "EduZim Umbalisi Portal",
@@ -73,6 +78,12 @@
     "saved": "Ukuba khona kugcinwe ngempumelelo!",
     "saveFailed": "Kwehlulekile ukugcina ukuba khona. Zama futhi.",
     "markAll": "Bhalisa Bonke",
+    "markAllPresentN": "Bhalisa bonke {n} bekhona",
+    "markAllAbsentN": "Bhalisa bonke {n} bengekho",
+    "undoBulkN": "Buyisela ({n} okuguqulweyo)",
+    "periodLabel": "Isikhathi",
+    "periodDay": "Usuku lonke (homeroom)",
+    "periodN": "Isikhathi {n}",
     "noStudents": "Akulabafundi okumele babhalisiwe",
     "classDetail": "Imininingwane yeKilasi",
     "noAnnouncements": "Akulazimemezelo zekilasi leli",
@@ -90,6 +101,7 @@
     "bodyPlaceholder": "Bhala isimemezelo sakho...",
     "targetClass": "Ikilasi Elifaneleyo",
     "allClasses": "Wonke Amakilasi Ami",
+    "audienceHintTeacherClasses": "Lokhu kuzothunyelwa ebazalini babafundi bonke abasemakilasi enu.",
     "sendFailed": "Kwehlulekile ukuthumela isimemezelo. Zama futhi."
   },
   "students": {
@@ -123,7 +135,148 @@
     "ministry": "Ihambisana loMnyango weMfundo",
     "vision2030": "Ukusekela Zimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Wonke amalungelo agcinwe.",
-    "motto": "Ubunye, Inkululeko, Umsebenzi"
+    "motto": "Ubunye, Inkululeko, Umsebenzi",
+    "privacyPolicy": "Inqubomgomo Yobumfihlo",
+    "retentionPolicy": "Ukugcinwa Kolwazi",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
+  },
+  "offline": {
+    "offline": "Kakulanethiwekhi",
+    "showingCached": "Ulwazi oluthelwe esitoreni",
+    "offlineShowingCached": "Kakulanethiwekhi — ulwazi oluthelwe esitoreni"
+  },
+  "plan": {
+    "title": "Hlela",
+    "description": "Izikhathi, amalesoni plans, formative assessments, lamaseat plans amahlolo.",
+    "loading": "Iyalayisha…",
+    "cancel": "Khansela",
+    "periods": {
+      "title": "Ishedyuli yezikhathi",
+      "empty": "Akukho zikhathi ezesethiwe. Abaphathi besikolo bafaka lokhu."
+    },
+    "lessonPlans": {
+      "title": "Amalesoni plans",
+      "create": "Iplani entsha yelesoni",
+      "save": "Londoloza",
+      "templatesOnly": "Amathemplate kuphela",
+      "templateBadge": "Template",
+      "empty": "Akukho maplans alesoni okwamanje.",
+      "titlePlaceholder": "Ibizo lelesoni",
+      "objectivesPlaceholder": "Izinhloso (kungaba ngokuzikhethela)",
+      "makeTemplate": "Yenza lokhu kube ithemplate (alikho ikilasi)"
+    },
+    "formatives": {
+      "title": "Formative assessments",
+      "create": "Umbuzo osheshayo",
+      "save": "Londoloza",
+      "empty": "Akukho formatives.",
+      "titlePlaceholder": "Isihloko esibonwa ngabafundi",
+      "promptPlaceholder": "Umbuzo kumbe iprompt",
+      "kindPoll": "Ivoti",
+      "kindExitTicket": "Ithikithi lokuphuma",
+      "kindQuiz": "Iquiz",
+      "responses": "{n} izimpendulo"
+    },
+    "seatPlans": {
+      "title": "Amaseat plans ehlolo",
+      "hint": "Ihhovisi lesikolo lihlela amaseat plans amahlolo amakhulu. Cela kumphathi akuphe iprinted copy ngosuku."
+    }
+  },
+  "professional": {
+    "title": "Ukukhula Kobungcweti",
+    "description": "Amarekhodi e-CPD lokuhlolwa-uqobo ngamatemu.",
+    "loading": "Iyalayisha…",
+    "cancel": "Khansela",
+    "cpd": {
+      "title": "Amarekhodi e-CPD",
+      "add": "Engeza irekhodi le-CPD",
+      "save": "Londoloza",
+      "empty": "Akukho marekhodi e-CPD.",
+      "totalHours": "Sekuhlangene: {hours} amahora",
+      "titlePlaceholder": "Isihloko (njenge 'Active learning workshop')",
+      "providerPlaceholder": "Umuphi (kungaba ngokuzikhethela)",
+      "hoursPlaceholder": "Amahora"
+    },
+    "selfEval": {
+      "title": "Ukuhlolwa-uqobo",
+      "save": "Thumela",
+      "savedAt": "Kulondoloziwe {ts}",
+      "termIdPlaceholder": "ID yetemu",
+      "strengths": "Amandla ngalelitemu",
+      "growthAreas": "Izindawo zokukhula",
+      "planForNext": "Iplani yetemu elilandelayo",
+      "overallReflection": "Ukucabanga ngokwephelele"
+    }
+  },
+  "studentLife": {
+    "title": "Impilo Yomfundi",
+    "description": "Izehlakalo, ukutholela isikhundla esikhathini esithile, lemisebenzi yasendlini.",
+    "loading": "Iyalayisha…",
+    "cancel": "Khansela",
+    "incidents": {
+      "title": "Izehlakalo zokuziphatha",
+      "create": "Bhala isehlakalo",
+      "save": "Londoloza",
+      "empty": "Akukho zehlakalo ezibhaliweyo.",
+      "studentIdPlaceholder": "ID yomfundi",
+      "classOptional": "Ikilasi (kungaba ngokuzikhethela)",
+      "severityMinor": "Encane",
+      "severityModerate": "Ephakathi",
+      "severitySerious": "Enzima",
+      "severityCritical": "Ebucayi",
+      "summaryPlaceholder": "Yini eyenzeka? Yenza kucace.",
+      "resolvedAt": "Kuxazululwe {ts}"
+    },
+    "substitute": {
+      "title": "Ukutholela isikhundla esikhathini esithile",
+      "hint": "Abaphathi banika isikhathi sokuthi ubone amakilasi omfundisi ongekho. Ubona izinikezelo zakho kuphela lapha.",
+      "empty": "Akukho zinikezelo zokumela ezisebenzayo.",
+      "covering": "Umela umfundisi {teacher}…"
+    },
+    "homework": {
+      "title": "Umsebenzi wasendlini",
+      "assign": "Nikeza umsebenzi",
+      "save": "Nikeza",
+      "empty": "Akukho msebenzi wasendlini.",
+      "due": "Kubuyiswa",
+      "titlePlaceholder": "Isihloko somsebenzi",
+      "descriptionPlaceholder": "Lokho okumele abafundi bakwenze"
+    }
+  },
+  "voiceNotes": {
+    "record": "Rekhoda",
+    "stop": "Yima",
+    "upload": "Layisha",
+    "uploading": "Iyalayishwa…",
+    "notSupported": "Amanothi elizwi awasekelwe kulesi sixhumi",
+    "error": "Ukurekhoda kwehlulekile",
+    "retry": "Zama futhi"
+  },
+  "gradebook": {
+    "title": "Incwadi yamamaki",
+    "description": "Wonke amamaki ekuhlolweni okumkhulu kuyimathrikisi eyodwa.",
+    "noClasses": "Akulamakilasi obamukelwe.",
+    "noAssessments": "Akukho kuhlola okusabhalwe kuleli kilasi.",
+    "loading": "Kulayisha incwadi yamamaki…",
+    "termFilterLabel": "Itemu:",
+    "termFilterPlaceholder": "Hlunga nge-id yetemu (kungaba ngokuzikhethela)",
+    "studentColumn": "Umfundi",
+    "averageColumn": "Avhareji",
+    "absentShort": "Kak"
+  },
+  "messages": {
+    "title": "Imilayezo",
+    "threadsCount": "izingxoxo",
+    "noThreads": "Akukho zingxoxo okwamanje",
+    "noThreadsHint": "Abazali bangaqala ingxoxo nawe ngomntwana wabo. Izingxoxo ezintsha zizovela lapha.",
+    "threadWithParent": "Umzali · {id}",
+    "noMessagesYet": "Akukho mlayezo okwamanje",
+    "threadDetailTitle": "Ingxoxo",
+    "loading": "Kulayishwa imilayezo…",
+    "composePlaceholder": "Bhala umlayezo…",
+    "send": "Thumela",
+    "redacted": "[kufihliwe]"
   },
   "assessments": {
     "title": "Ukuhlola",

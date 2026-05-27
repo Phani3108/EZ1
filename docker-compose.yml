@@ -15,12 +15,20 @@ services:
     environment:
       POSTGRES_USER: eduzim
       POSTGRES_PASSWORD: eduzim_secret
-      POSTGRES_MULTIPLE_DATABASES: auth_db,school_db,student_db,attendance_db,fees_db,comms_db,reporting_db,assessment_db
+      # PH2-12: school_db / student_db / attendance_db / assessment_db
+      # dropped — the corresponding services are gone; academics_db owns
+      # those tables now. auth_db is kept (identity service); fees_db,
+      # comms_db, reporting_db remain (one per surviving service).
+      POSTGRES_MULTIPLE_DATABASES: auth_db,fees_db,comms_db,reporting_db,academics_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
     ports:
-      - "5432:5432"
+      # Remapped from 5432 to avoid conflict with host Postgres + a
+      # siteflow docker project already binding 5432/5433/5434.
+      # Containers still use the internal `postgres:5432`; this
+      # mapping is only for host-side psql access.
+      - "15432:5432"
     healthcheck:
       test: [ "CMD-SHELL", "pg_isready -U eduzim" ]
       interval: 5s
@@ -29,12 +37,90 @@ services:
     networks:
       - eduzim-network
 
+  # --- PgBouncer (INFRA-002 / Phase 4) ---
+  # Transaction-mode connection pooler in front of Postgres. Every
+  # service points its DATABASE_URL at pgbouncer:6432 instead of
+  # postgres:5432, so the per-service pool_size=20 in `app.database`
+  # doesn't translate into 100+ open Postgres connections at scale.
+  #
+  # Transaction mode (vs session mode) means a client connection
+  # multiplexes Postgres backends on transaction boundaries — works for
+  # everything except prepared statements + advisory locks (we don't use
+  # either). FOR UPDATE locks held within a single transaction still
+  # work correctly because the entire txn lives on one backend.
+  pgbouncer:
+    # Was pinned to v1.23.1 but that tag was removed from Docker Hub.
+    # `latest` is reproducible enough for dev; production wiring uses
+    # a private mirror with explicit digest pinning.
+    image: edoburu/pgbouncer:latest
+    container_name: eduzim-pgbouncer
+    environment:
+      DB_USER: eduzim
+      DB_PASSWORD: eduzim_secret
+      DB_HOST: postgres
+      DB_PORT: 5432
+      # `*` means: pgbouncer accepts connections to ANY dbname and
+      # proxies to postgres at the same dbname. Equivalent to listing
+      # auth_db/academics_db/fees_db/comms_db/reporting_db one-by-one.
+      DB_NAME: "*"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 20
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      # Allow auth via the same eduzim user; pgbouncer authenticates
+      # against postgres directly. AUTH_TYPE=md5 keeps the upstream
+      # password hashed on disk; in prod swap for scram-sha-256.
+      AUTH_TYPE: md5
+    ports:
+      - "6432:6432"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  # --- One-shot schema migrations (BUG-008 / Phase 4) ---
+  # Boots after Postgres is healthy, runs `alembic upgrade head` for
+  # every service in sequence, exits. Service containers
+  # `depends_on: migrations: condition: service_completed_successfully`,
+  # so they only start once the schema is current. Eliminates the
+  # 6-container alembic-lock race.
+  #
+  # Note: migrations connect to Postgres DIRECTLY (not via pgbouncer)
+  # because alembic uses DDL statements that don't compose with
+  # transaction-mode pooling.
+  migrations:
+    build:
+      context: .
+      dockerfile: ./services/migrations/Dockerfile
+    container_name: eduzim-migrations
+    environment:
+      DB_USER: eduzim
+      DB_PASSWORD: eduzim_secret
+      DB_HOST: postgres
+      DB_PORT: 5432
+      # JWT secret is required by each service's app.config at
+      # import time (BUG-003); migrations container only needs ANY
+      # value here.
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN missing — run scripts/bootstrap-secrets.sh}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+    restart: "no"
+
   # --- Redis ---
   redis:
     image: redis:7-alpine
     container_name: eduzim-redis
     ports:
-      - "6379:6379"
+      # Remapped from 6379 — host already running a local Redis on
+      # that port. Containers still use `redis:6379` internally.
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -90,174 +176,141 @@ services:
   # Application Services
   # ============================================================
 
-  auth-service:
+  # PH2-2: renamed from auth-service → identity (per ADR 006 + addendum).
+  # Container exposes both DNS names on the docker network for back-compat
+  # so other services that still reference http://auth-service:8000 resolve.
+  identity:
     build:
       context: .
-      dockerfile: ./services/auth-service/Dockerfile
-    container_name: eduzim-auth
+      dockerfile: ./services/identity/Dockerfile
+    container_name: eduzim-identity
     environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/auth_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      # INFRA-002 / Phase 4: pool through pgbouncer.
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/auth_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_URL: redis://redis:6379/0
     ports:
       - "8001:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
       kafka:
         condition: service_healthy
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - identity
 
-  school-service:
+  # PH2-12: the four pre-consolidation services (school-service, student-service,
+  # attendance-service, assessment-service) and notification-worker have been
+  # deleted. Their containers + per-service DBs are gone from compose; academics
+  # owns those domains and the consolidated tables now.
+  academics:
     build:
       context: .
-      dockerfile: ./services/school-service/Dockerfile
-    container_name: eduzim-school
+      dockerfile: ./services/academics/Dockerfile
+    container_name: eduzim-academics
     environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/school_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      # INFRA-002 / Phase 4: pool through pgbouncer (transaction mode).
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/academics_db
+      REPORTING_DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/reporting_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8000
-      STUDENT_SERVICE_URL: http://student-service:8000
-      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
+      KAFKA_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://identity:8000
+      FINANCE_SERVICE_URL: http://finance:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN missing — run scripts/bootstrap-secrets.sh}
     ports:
-      - "8002:8000"
+      - "8009:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
       kafka:
         condition: service_healthy
     networks:
       - eduzim-network
 
-  student-service:
+  # PH2-3: renamed from fees-service → finance (per ADR 006 + addendum).
+  finance:
     build:
       context: .
-      dockerfile: ./services/student-service/Dockerfile
-    container_name: eduzim-student
+      dockerfile: ./services/finance/Dockerfile
+    container_name: eduzim-finance
     environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/student_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      # INFRA-002 / Phase 4: pool through pgbouncer.
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/fees_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8000
-    ports:
-      - "8003:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  attendance-service:
-    build:
-      context: .
-      dockerfile: ./services/attendance-service/Dockerfile
-    container_name: eduzim-attendance
-    environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/attendance_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      REDIS_URL: redis://redis:6379/1
-      AUTH_SERVICE_URL: http://auth-service:8000
-      SCHOOL_SERVICE_URL: http://school-service:8000
-      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
-    ports:
-      - "8004:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  fees-service:
-    build:
-      context: .
-      dockerfile: ./services/fees-service/Dockerfile
-    container_name: eduzim-fees
-    environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/fees_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8000
+      IDENTITY_SERVICE_URL: http://identity:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN missing — run scripts/bootstrap-secrets.sh}
     ports:
       - "8005:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
       kafka:
         condition: service_healthy
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - finance
 
-  communication-service:
+  # PH2-4 folded notification-worker code into this service; PH2-12 deleted
+  # the now-redundant notification-worker container.
+  communications:
     build:
       context: .
-      dockerfile: ./services/communication-service/Dockerfile
-    container_name: eduzim-comms
+      dockerfile: ./services/communications/Dockerfile
+    container_name: eduzim-communications
     environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/comms_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      # INFRA-002 / Phase 4: pool through pgbouncer.
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/comms_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       REDIS_URL: redis://redis:6379/2
-      AUTH_SERVICE_URL: http://auth-service:8000
+      IDENTITY_SERVICE_URL: http://identity:8000
+      # PH3 / BUG-007: required for gateway-headers-only auth.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN missing — run scripts/bootstrap-secrets.sh}
     ports:
       - "8006:8000"
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
       kafka:
         condition: service_healthy
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - communications
 
   reporting-service:
+    # PH2-11: pure Kafka consumer. No HTTP surface, no exposed port. The
+    # /api/v1/reports/* endpoints moved to the academics service, which
+    # opens a read-only connection to this same reporting_db.
     build:
       context: .
       dockerfile: ./services/reporting-service/Dockerfile
     container_name: eduzim-reporting
     environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/reporting_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
+      # INFRA-002 / Phase 4: pool through pgbouncer.
+      DATABASE_URL: postgresql://eduzim:eduzim_secret@pgbouncer:6432/reporting_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      AUTH_SERVICE_URL: http://auth-service:8000
-      STUDENT_SERVICE_URL: http://student-service:8000
-      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
-      FEES_SERVICE_URL: http://fees-service:8000
-    ports:
-      - "8007:8000"
+      KAFKA_ENABLED: "true"
     depends_on:
-      postgres:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  assessment-service:
-    build:
-      context: .
-      dockerfile: ./services/assessment-service/Dockerfile
-    container_name: eduzim-assessment
-    environment:
-      DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/assessment_db
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      SCHOOL_SERVICE_URL: http://school-service:8000
-      STUDENT_SERVICE_URL: http://student-service:8000
-      INTERNAL_SERVICE_TOKEN: eduzim-internal-secret-change-in-production
-    ports:
-      - "8008:8000"
-    depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
       kafka:
         condition: service_healthy
     networks:
@@ -269,34 +322,99 @@ services:
       dockerfile: ./services/api-gateway/Dockerfile
     container_name: eduzim-gateway
     environment:
-      JWT_SECRET_KEY: dev-jwt-secret-change-in-production
-      AUTH_SERVICE_URL: http://auth-service:8000
-      SCHOOL_SERVICE_URL: http://school-service:8000
-      STUDENT_SERVICE_URL: http://student-service:8000
-      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
-      FEES_SERVICE_URL: http://fees-service:8000
-      COMMUNICATION_SERVICE_URL: http://communication-service:8000
-      REPORTING_SERVICE_URL: http://reporting-service:8000
-      ASSESSMENT_SERVICE_URL: http://assessment-service:8000
+      # BUG-003: secret must come from .env (run scripts/bootstrap-secrets.sh)
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY missing — run scripts/bootstrap-secrets.sh}
+      # PH3 / BUG-007: shared secret the gateway sends as X-Gateway-Token
+      # on every downstream request. Each downstream service compares
+      # against its own INTERNAL_SERVICE_TOKEN and rejects 401 on mismatch.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN:?INTERNAL_SERVICE_TOKEN missing — run scripts/bootstrap-secrets.sh}
+      # PH2-12: post-cleanup canonical service URL set. The deprecated
+      # aliases (AUTH/SCHOOL/STUDENT/ATTENDANCE/ASSESSMENT/FEES/
+      # COMMUNICATION/REPORTING_SERVICE_URL) are gone; the four remaining
+      # services are the actual SOA boundary now.
+      IDENTITY_SERVICE_URL: http://identity:8000
+      ACADEMICS_SERVICE_URL: http://academics:8000
+      FINANCE_SERVICE_URL: http://finance:8000
+      COMMUNICATIONS_SERVICE_URL: http://communications:8000
       REDIS_URL: redis://redis:6379/3
       REDIS_ENABLED: "true"
       COOKIE_SECURE: "false"  # local HTTP dev only; docker-compose.prod.yml sets true
     ports:
       - "8000:8000"
     depends_on:
-      - auth-service
+      - identity
+      - academics
+      - finance
+      - communications
       - redis
     networks:
       - eduzim-network
 
-  notification-worker:
+  # INFRA-007 (Phase 6): Prometheus scrapes /metrics from every service.
+  # Phase 6 expansion wired all 6 services via eduzim_shared.metrics.
+  # Alertmanager rules live in infra/observability/rules/ — mounted into
+  # /etc/prometheus/rules and picked up by prometheus.yml's rule_files.
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: eduzim-prometheus
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=15d
+      - --web.enable-lifecycle
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api-gateway
+    networks:
+      - eduzim-network
+
+  # INFRA-007 (Phase 6): Grafana provisioned with a Prometheus datasource
+  # and one starter dashboard ("Gateway Overview"). Login: admin/admin (dev
+  # only; the production stack will swap this for SSO or a strong password).
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: eduzim-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./infra/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./infra/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3030:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - eduzim-network
+
+  # INFRA-001 (Phase 4): pg_dump backup container. Snapshots every EduZim
+  # database on BACKUP_SCHEDULE_SECONDS (default 24h), retains the most
+  # recent N (default 14), and writes to a named volume.
+  # Restore: docker compose run --rm pg-backup /app/restore.sh <db_name>
+  # Full runbook: docs/runbooks/backup-restore.md
+  pg-backup:
     build:
       context: .
-      dockerfile: ./services/notification-worker/Dockerfile
-    container_name: eduzim-notifier
+      dockerfile: ./infra/backups/Dockerfile
+    container_name: eduzim-pg-backup
     environment:
-      COMMS_DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/comms_db
-      AUTH_DATABASE_URL: postgresql://eduzim:eduzim_secret@postgres:5432/auth_db
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: eduzim
+      POSTGRES_PASSWORD: eduzim_secret
+      BACKUP_DIR: /backups
+      BACKUP_RETENTION: 14
+      BACKUP_SCHEDULE_SECONDS: 86400
+    volumes:
+      - pg_backups:/backups
     depends_on:
       postgres:
         condition: service_healthy
@@ -312,6 +430,9 @@ volumes:
   redis_data:
   zookeeper_data:
   kafka_data:
+  pg_backups:        # INFRA-001 backup destination
+  prometheus_data:   # INFRA-007 TSDB
+  grafana_data:      # INFRA-007 Grafana DB
 
 
 networks:

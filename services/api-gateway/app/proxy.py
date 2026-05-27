@@ -2,13 +2,18 @@
 Gateway Proxy — Downstream Request Forwarding
 ================================================
 - Forwards with timeout
-- Propagates X-Request-Id, Authorization, X-School-Id, X-User-Id
+- Propagates X-Request-Id, X-User-Id, X-School-Id, X-User-Roles,
+  X-Permissions, X-User-Role (legacy), X-Gateway-Token
+  (PH3 / BUG-007: downstream services trust these headers and DO NOT
+   re-parse the JWT. X-Gateway-Token is the integrity guard — services
+   reject any request whose token doesn't match their INTERNAL_SERVICE_TOKEN.)
 - GET retries with backoff (safe idempotent methods)
 - Per-service circuit breaker (fail-fast)
 - Normalizes errors from downstream
 - Logs request/response with structured fields
 """
 import asyncio
+import os
 import time
 import logging
 from enum import Enum
@@ -124,16 +129,42 @@ class GatewayProxy:
         if headers:
             auth = headers.get("authorization") or headers.get("Authorization")
             if auth:
+                # Authorization is forwarded only for /api/v1/auth/* routes
+                # (identity service is the only one that reads it). Other
+                # services SHOULD ignore it now — PH3 / BUG-007 stripped
+                # their JWT-decoding code. Keeping the forward is a
+                # transitional convenience for refresh-token paths.
                 fwd_headers["Authorization"] = auth
 
-        # Inject tenant headers from JWT (NEVER from client)
+        # PH3 / BUG-007: inject identity headers from the JWT — NEVER from
+        # the client. The downstream services trust these headers as the
+        # sole source of identity and reject any direct call that doesn't
+        # carry a matching X-Gateway-Token.
         if tenant:
             if tenant.get("school_id"):
                 fwd_headers["X-School-Id"] = str(tenant["school_id"])
             if tenant.get("user_id"):
                 fwd_headers["X-User-Id"] = str(tenant["user_id"])
             if tenant.get("role"):
+                # Kept for back-compat with any code that still reads
+                # the single-role header. New code uses X-User-Roles.
                 fwd_headers["X-User-Role"] = tenant["role"]
+            roles = tenant.get("roles") or []
+            if roles:
+                fwd_headers["X-User-Roles"] = ",".join(str(r) for r in roles)
+            perms = tenant.get("permissions") or []
+            if perms:
+                fwd_headers["X-Permissions"] = ",".join(str(p) for p in perms)
+
+        # X-Gateway-Token: the shared secret proving this request came
+        # from the gateway. Sourced from env at request time so the
+        # bootstrap script can rotate it without a gateway restart. If
+        # unset, the header is omitted and downstream services 401 the
+        # request — which is the correct fail-closed behaviour for a
+        # mis-configured deployment.
+        gateway_token = os.environ.get("INTERNAL_SERVICE_TOKEN", "")
+        if gateway_token:
+            fwd_headers["X-Gateway-Token"] = gateway_token
 
         # Determine if retry-safe (GET only)
         max_attempts = settings.RETRY_MAX_ATTEMPTS if method == "GET" else 1

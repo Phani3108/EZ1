@@ -101,3 +101,49 @@ export type {
 } from "./lib/export";
 
 
+
+/* ─── Charts — Recharts wrappers (Phase 10 Q-001a; ADR 011) ─── */
+/* Lightweight Recharts (~50KB gzipped) — safe to import directly.   */
+export {
+    LineChart,
+    BarChart,
+    PieChart,
+    SparkLine,
+    CHART_COLORS,
+} from "./components/charts";
+export type {
+    LineChartProps,
+    BarChartProps,
+    PieChartProps,
+    SparkLineProps,
+    PieDatum,
+} from "./components/charts";
+
+/* ─── Heavy charts — ECharts wrappers (Phase 10 Q-001b; ADR 011) ─── */
+/*                                                                    */
+/* IMPORTANT (PH10-3): the components below pull ECharts (~600KB      */
+/* gzipped). DO NOT import them via `@eduzim/ui` directly in any page */
+/* that ships to a Lighthouse-budgeted bundle. Use `next/dynamic`:    */
+/*                                                                    */
+/*    import dynamic from "next/dynamic";                             */
+/*    const Heatmap = dynamic(                                        */
+/*      () => import("@eduzim/ui/echarts").then(m => m.Heatmap),      */
+/*      { ssr: false, loading: () => <ChartSkeleton /> }              */
+/*    );                                                              */
+/*                                                                    */
+/* The TYPE re-exports below are safe (types are erased at build      */
+/* time). The runtime exports are intentionally NOT here — the heavy  */
+/* path must go through `@eduzim/ui/echarts` so the bundler sees it   */
+/* as a separately-loadable chunk.                                    */
+/*                                                                    */
+/* See `apps/admin-web/src/lib/lazy-charts.tsx` for the recommended   */
+/* dynamic-import wrappers (built per-app to keep ESLint happy).      */
+export type {
+    HeatmapProps,
+    HeatmapDatum,
+    ZimbabweGeomapProps,
+    GeomapDatum,
+    SankeyProps,
+    SankeyNode,
+    SankeyLink,
+} from "./components/charts/echarts";

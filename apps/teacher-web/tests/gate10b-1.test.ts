@@ -153,12 +153,16 @@ describe("i18n message files", () => {
     expect(ndKeys).toEqual(enKeys);
   });
 
-  it("nav has exactly 3 teacher items", () => {
+  it("nav contains the core teacher items (Phase 11b added messages)", () => {
     const navKeys = Object.keys(enMessages.nav);
     expect(navKeys).toContain("today");
     expect(navKeys).toContain("myClasses");
     expect(navKeys).toContain("announcements");
-    expect(navKeys.length).toBe(3);
+    expect(navKeys).toContain("messages");
+    // The count will grow as Phase 11 adds pages (gradebook, calendar,
+    // lesson-plans, incidents, etc.). We assert a floor here rather
+    // than a brittle exact-equals.
+    expect(navKeys.length).toBeGreaterThanOrEqual(4);
   });
 
   it("today section has welcome with {name} placeholder", () => {

@@ -1,0 +1,53 @@
+# Loki configuration — INFRA-009 / Phase 6.
+#
+# Single-node Loki running in monolithic mode. For prod with serious
+# log volume, swap for the read/write split or use Grafana Cloud Loki.
+# This config is tuned for the dev / staging stack size (~6 services,
+# moderate log volume).
+
+auth_enabled: false
+
+server:
+  http_listen_port: 3100
+  grpc_listen_port: 9095
+  log_level: info
+
+common:
+  instance_addr: 127.0.0.1
+  path_prefix: /loki
+  storage:
+    filesystem:
+      chunks_directory: /loki/chunks
+      rules_directory: /loki/rules
+  replication_factor: 1
+  ring:
+    kvstore:
+      store: inmemory
+
+schema_config:
+  configs:
+    - from: 2024-01-01
+      store: tsdb
+      object_store: filesystem
+      schema: v13
+      index:
+        prefix: index_
+        period: 24h
+
+limits_config:
+  retention_period: 168h     # 7d on the dev stack; bump to 30d in prod
+  ingestion_rate_mb: 32
+  ingestion_burst_size_mb: 64
+  max_streams_per_user: 10000
+  max_label_name_length: 1024
+  max_label_value_length: 4096
+
+compactor:
+  working_directory: /loki/compactor
+  delete_request_store: filesystem
+  retention_enabled: true
+  retention_delete_delay: 2h
+
+# Ruler is disabled — alerts come from Prometheus. Loki rules would
+# add log-pattern alerts (e.g. "any panic in any service in last 5m");
+# leave for Phase 6 follow-up.

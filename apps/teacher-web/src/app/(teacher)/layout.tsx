@@ -16,6 +16,11 @@ import {
   CalendarDays,
   BookOpen,
   Megaphone,
+  MessageCircle,
+  GraduationCap,
+  Calendar as CalendarIcon,
+  Users as UsersIcon,
+  Award as AwardIcon,
   LogOut,
   CheckCircle,
   Clock,
@@ -30,6 +35,19 @@ const teacherNav = [
   { key: "today", href: "/today", icon: CalendarDays },
   { key: "myClasses", href: "/classes", icon: BookOpen },
   { key: "announcements", href: "/announcements", icon: Megaphone },
+  // Phase 11b / T-011 — parent-teacher 1:1 messaging.
+  { key: "messages", href: "/messages", icon: MessageCircle },
+  // Phase 11c / T-015 — cross-assessment gradebook.
+  { key: "gradebook", href: "/gradebook", icon: GraduationCap },
+  // Phase 11d — consolidated planning surface: calendar / lesson plans
+  // / formatives / seat plans on one page.
+  { key: "plan", href: "/plan", icon: CalendarIcon },
+  // Phase 11e — student-life consolidated surface: incidents,
+  // substitute grants, homework.
+  { key: "studentLife", href: "/student-life", icon: UsersIcon },
+  // Phase 11f — teacher self-service: CPD + self-evaluation.
+  // (HoD + co-teacher are admin actions, not on teacher-web.)
+  { key: "professional", href: "/professional", icon: AwardIcon },
 ] as const;
 
 export default function TeacherLayout({

@@ -8,12 +8,19 @@ ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT_DIR, "shared"))
 
 SERVICES = {
-    "auth_db": "services/auth-service",
+    # PH2-2: auth-service renamed to identity; DB name kept as auth_db
+    # until PH2 collapses identity_db / academics_db etc.
+    "auth_db": "services/identity",
     "school_db": "services/school-service",
+    # PH2-6: academics runs alongside school-service; uses academics_db
+    # so the burn-in doesn't share state with school_db.
+    "academics_db": "services/academics",
     "student_db": "services/student-service",
     "attendance_db": "services/attendance-service",
-    "fees_db": "services/fees-service",
-    "comms_db": "services/communication-service",
+    # PH2-3: fees-service renamed to finance; DB name kept as fees_db.
+    "fees_db": "services/finance",
+    # PH2-4: communication-service renamed to communications; DB name kept.
+    "comms_db": "services/communications",
     "reporting_db": "services/reporting-service",
     "assessment_db": "services/assessment-service",
 }

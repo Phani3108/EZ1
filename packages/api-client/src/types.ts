@@ -178,6 +178,12 @@ export interface AttendanceDailyRecord {
   class_id: string;
   date: string;
   status: string;
+  /**
+   * Phase 11a / T-002. 0 = daily / homeroom mark (legacy). 1..N = a
+   * specific period in the school's schedule. Optional on the wire so
+   * older clients that don't know about periods still parse correctly.
+   */
+  period_number?: number;
   marked_by_user_id?: string;
   last_modified_at: string;
 }
@@ -218,6 +224,13 @@ export interface AttendanceSyncEvent {
   student_id: string;
   date: string;
   status: "P" | "A" | "L";
+  /**
+   * Phase 11a / T-002. Optional in the wire payload — when omitted, the
+   * backend treats it as 0 (daily / homeroom / all-day mark, the legacy
+   * single-row-per-student-per-day mode). Set to 1..N to record an
+   * attendance row for a specific period (secondary-school mode).
+   */
+  period_number?: number;
   last_modified_at: string;
 }
 
@@ -310,6 +323,34 @@ export interface OutboxEntry {
   retry_count: number;
   last_attempt_at: string | null;
   error_message: string | null;
+  created_at: string;
+}
+
+// ─── Phase 11b / T-011 — parent-teacher messaging ───
+
+export interface MessageThread {
+  id: string;
+  school_id: string;
+  teacher_user_id: string;
+  parent_user_id: string;
+  last_message_at: string | null;
+  /**
+   * Unread count from the VIEWER's perspective (server determines which
+   * side this is based on the caller's identity).
+   */
+  unread_count: number;
+  created_at: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  thread_id: string;
+  sender_user_id: string;
+  sender_role: "Teacher" | "Parent" | string;
+  body: string;
+  redacted: boolean;
+  redacted_at: string | null;
+  read_at: string | null;
   created_at: string;
 }
 
@@ -477,6 +518,34 @@ export interface SubjectPerformance {
 
 export interface ClassPerformance {
   subjects: SubjectPerformance[];
+}
+
+// Phase 11c / T-015 — cross-assessment gradebook payload.
+export interface GradebookCell {
+  marks: number | null;
+  is_absent: boolean;
+  remarks: string | null;
+}
+export interface GradebookRow {
+  student_id: string;
+  marks: Record<string, GradebookCell>; // keyed by assessment_id
+  graded_count: number;
+  average_pct: number | null;
+}
+export interface GradebookAssessment {
+  id: string;
+  name: string;
+  assessment_type: string;
+  date: string;
+  max_marks: number;
+  subject_id: string;
+}
+export interface ClassGradebook {
+  class_id: string;
+  term_id: string | null;
+  subject_id: string | null;
+  assessments: GradebookAssessment[];
+  rows: GradebookRow[];
 }
 
 export interface CreateAssessmentRequest {

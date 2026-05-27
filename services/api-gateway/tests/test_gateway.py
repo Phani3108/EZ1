@@ -27,16 +27,23 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock, patch, MagicMock
 
 # Patch env BEFORE any app imports
-os.environ["JWT_SECRET_KEY"] = "test-gateway-secret-key-2026"
+# DEBUG=true so the BUG-003 length/known-bad-secret startup guard logs warnings
+# instead of refusing to start with the obviously-test JWT below.
+# REDIS_ENABLED=false so the BUG-006 _build_rate_limiter() returns None (no
+# rate-limit) for unit tests that don't exercise the limiter. Tests that DO
+# exercise the limiter inject a FakeRedis directly (see TestRateLimiting).
+os.environ["DEBUG"] = "true"
+os.environ["JWT_SECRET_KEY"] = "test-gateway-secret-key-2026-padding-XXXX"  # ≥32 chars
 os.environ["JWT_ALGORITHM"] = "HS256"
 os.environ["REDIS_ENABLED"] = "false"
-os.environ["AUTH_SERVICE_URL"] = "http://localhost:8001"
-os.environ["SCHOOL_SERVICE_URL"] = "http://localhost:8002"
-os.environ["STUDENT_SERVICE_URL"] = "http://localhost:8003"
-os.environ["ATTENDANCE_SERVICE_URL"] = "http://localhost:8004"
-os.environ["FEES_SERVICE_URL"] = "http://localhost:8005"
-os.environ["COMMUNICATION_SERVICE_URL"] = "http://localhost:8006"
-os.environ["REPORTING_SERVICE_URL"] = "http://localhost:8007"
+# PH2-12: post-cleanup env. Only the four canonical downstream URLs +
+# identity are needed; the deprecated aliases are gone from the config
+# model so setting them here would have no effect (and would mislead
+# anyone copying this block).
+os.environ["IDENTITY_SERVICE_URL"] = "http://localhost:8001"
+os.environ["ACADEMICS_SERVICE_URL"] = "http://localhost:8009"
+os.environ["FINANCE_SERVICE_URL"] = "http://localhost:8005"
+os.environ["COMMUNICATIONS_SERVICE_URL"] = "http://localhost:8006"
 
 from jose import jwt as jose_jwt
 from httpx import AsyncClient
@@ -55,6 +62,47 @@ SCHOOL_A = str(uuid.uuid4())
 SCHOOL_B = str(uuid.uuid4())
 USER_A = str(uuid.uuid4())
 USER_B = str(uuid.uuid4())
+
+
+# ───────────── FakeRedis (test helper for BUG-006) ─────────────
+# A minimal stand-in for redis-py supporting only the ops the rate limiter
+# actually uses: pipeline().incr().expire().execute(). State persists across
+# .check() calls on the same instance, just like real Redis.
+
+
+class _FakePipeline:
+    def __init__(self, store):
+        self._store = store
+        self._ops = []
+
+    def incr(self, key):
+        self._ops.append(("incr", key))
+        return self
+
+    def expire(self, key, ttl):
+        self._ops.append(("expire", key, ttl))
+        return self
+
+    def execute(self):
+        out = []
+        for op in self._ops:
+            if op[0] == "incr":
+                self._store[op[1]] = self._store.get(op[1], 0) + 1
+                out.append(self._store[op[1]])
+            elif op[0] == "expire":
+                out.append(True)
+        self._ops.clear()
+        return out
+
+
+class FakeRedis:
+    """Minimal Redis substitute for rate-limiter tests (BUG-006)."""
+
+    def __init__(self):
+        self._store: dict = {}
+
+    def pipeline(self):
+        return _FakePipeline(self._store)
 
 
 # ═══════════════════════════════════════════
@@ -248,10 +296,17 @@ class TestRBAC:
         assert allowed is False
         assert "fees:write" in reason
 
-    def test_report_admin_requires_permission(self):
+    def test_report_writes_dropped_default_to_authenticated(self):
+        """PH2-11: /api/v1/reports/rebuild and /reports/consume are gone from
+        the public API. They no longer have an explicit RBAC entry, so the
+        gateway falls through to the default `authenticated` permission. A
+        teacher token IS authenticated — so this returns True now. The
+        underlying endpoint will 404 in academics (it never had them); the
+        gateway's job is just to not block any well-formed request.
+        """
         payload = validate_jwt(f"Bearer {_teacher_token()}")
-        allowed, reason = check_rbac(payload, "POST", "/api/v1/reports/rebuild")
-        assert allowed is False
+        allowed, _reason = check_rbac(payload, "POST", "/api/v1/reports/rebuild")
+        assert allowed is True
 
     def test_report_read_for_admin(self):
         payload = validate_jwt(f"Bearer {_admin_token()}")
@@ -306,14 +361,23 @@ class TestTenantEnforcement:
 # ═══════════════════════════════════════════
 
 class TestRateLimiting:
+    # BUG-006: RateLimiter now requires a Redis client. Tests inject FakeRedis.
+    # The in-memory fallback is gone — see services/api-gateway/app/middleware/stack.py.
+
+    def test_constructor_requires_redis(self):
+        """BUG-006 regression: passing redis_client=None must raise loudly."""
+        import pytest
+        with pytest.raises(ValueError, match="requires a redis_client"):
+            RateLimiter(redis_client=None)
+
     def test_allows_under_limit(self):
-        rl = RateLimiter()
+        rl = RateLimiter(redis_client=FakeRedis())
         allowed, remaining, _ = rl.check("test:user1", 5, 60)
         assert allowed is True
         assert remaining == 4
 
     def test_denies_over_limit(self):
-        rl = RateLimiter()
+        rl = RateLimiter(redis_client=FakeRedis())
         for i in range(5):
             rl.check("test:user2", 5, 60)
         allowed, remaining, _ = rl.check("test:user2", 5, 60)
@@ -321,7 +385,7 @@ class TestRateLimiting:
         assert remaining == 0
 
     def test_different_keys_independent(self):
-        rl = RateLimiter()
+        rl = RateLimiter(redis_client=FakeRedis())
         for _ in range(5):
             rl.check("test:userA", 5, 60)
         # userA is at limit
@@ -330,6 +394,14 @@ class TestRateLimiting:
         allowed_b, _, _ = rl.check("test:userB", 5, 60)
         assert allowed_a is False
         assert allowed_b is True
+
+    def test_state_persists_across_checks_same_instance(self):
+        """BUG-006 spirit: state must persist (Redis-backed) — not reset."""
+        rl = RateLimiter(redis_client=FakeRedis())
+        for _ in range(3):
+            rl.check("test:persist", 5, 60)
+        _, remaining, _ = rl.check("test:persist", 5, 60)
+        assert remaining == 1  # 5 - 4 calls so far
 
     def test_rate_limit_key_per_user_default(self):
         payload = {"sub": USER_A, "school_id": SCHOOL_A}
@@ -352,12 +424,46 @@ class TestRateLimiting:
         assert USER_A in key  # Falls back to user_id
         assert limit == settings.SYNC_RATE_LIMIT
 
-    def test_anonymous_rate_limit_key(self):
-        key, _, _ = get_rate_limit_key("/api/v1/auth/login", None)
-        assert "anon" in key
+    def test_login_key_uses_ip_for_unauthenticated(self):
+        """BUG-006 composite: unauthenticated /auth/login keys on IP."""
+        key, limit, _ = get_rate_limit_key(
+            "/api/v1/auth/login", None, ip="203.0.113.42",
+        )
+        assert key.startswith("login:")
+        assert "203.0.113.42" in key
+        assert limit == settings.LOGIN_RATE_LIMIT
+
+    def test_login_key_uses_ip_even_with_user(self):
+        """Even if a token is somehow present, login still rate-limits by IP."""
+        payload = {"sub": USER_A, "school_id": SCHOOL_A}
+        key, _, _ = get_rate_limit_key(
+            "/api/v1/auth/login", payload, ip="198.51.100.7",
+        )
+        assert "198.51.100.7" in key
+        assert USER_A not in key  # NOT keyed by user — keyed by IP
+
+    def test_refresh_key_uses_ip(self):
+        """`/auth/refresh` also IP-keyed (BUG-006)."""
+        key, _, _ = get_rate_limit_key(
+            "/api/v1/auth/refresh", None, ip="192.0.2.1",
+        )
+        assert "192.0.2.1" in key
+
+    def test_anonymous_non_auth_route_uses_ip(self):
+        """An anonymous request to a non-auth route is bucketed by IP, not 'anon'."""
+        key, _, _ = get_rate_limit_key(
+            "/api/v1/students", None, ip="192.0.2.99",
+        )
+        assert "192.0.2.99" in key
+
+    def test_login_key_independent_per_ip(self):
+        """Two different IPs hitting /login get independent buckets."""
+        k1, _, _ = get_rate_limit_key("/api/v1/auth/login", None, ip="10.0.0.1")
+        k2, _, _ = get_rate_limit_key("/api/v1/auth/login", None, ip="10.0.0.2")
+        assert k1 != k2
 
     def test_remaining_decrements(self):
-        rl = RateLimiter()
+        rl = RateLimiter(redis_client=FakeRedis())
         _, r1, _ = rl.check("test:dec", 10, 60)
         _, r2, _ = rl.check("test:dec", 10, 60)
         _, r3, _ = rl.check("test:dec", 10, 60)
@@ -366,7 +472,7 @@ class TestRateLimiting:
         assert r3 == 7
 
     def test_reset_time_returned(self):
-        rl = RateLimiter()
+        rl = RateLimiter(redis_client=FakeRedis())
         _, _, reset = rl.check("test:reset", 10, 60)
         assert reset > time.time()
         assert reset <= time.time() + 60
@@ -536,29 +642,74 @@ class TestCircuitBreaker:
 
 class TestRouteResolution:
     def test_resolve_auth(self):
+        # PH2-2: /api/v1/auth/* now routes to the renamed `identity` service
+        # via IDENTITY_SERVICE_URL. The public path is unchanged.
         url_key, name = resolve_service("/api/v1/auth/login")
-        assert url_key == "AUTH_SERVICE_URL"
-        assert name == "auth-service"
+        assert url_key == "IDENTITY_SERVICE_URL"
+        assert name == "identity"
 
     def test_resolve_students(self):
+        # PH2-10: all academic-domain prefixes now route to the consolidated
+        # `academics` service via ACADEMICS_SERVICE_URL.
         url_key, name = resolve_service("/api/v1/students")
-        assert url_key == "STUDENT_SERVICE_URL"
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
 
     def test_resolve_attendance(self):
+        # PH2-10: academic-domain consolidation.
         url_key, name = resolve_service("/api/v1/attendance/sync")
-        assert url_key == "ATTENDANCE_SERVICE_URL"
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
+
+    def test_resolve_schools_routes_to_academics(self):
+        """PH2-10 cutover: /api/v1/schools/* → academics (was school-service)."""
+        url_key, name = resolve_service("/api/v1/schools")
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
+
+    def test_resolve_classes_routes_to_academics(self):
+        url_key, name = resolve_service("/api/v1/classes")
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
+
+    def test_resolve_assessments_routes_to_academics(self):
+        """PH2-10 cutover: /api/v1/assessments/* → academics (was assessment-service)."""
+        url_key, name = resolve_service("/api/v1/assessments")
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
+
+    def test_resolve_provinces_routes_to_academics(self):
+        """PH2-10 closes the long-standing gateway gap for the geo refs."""
+        url_key, name = resolve_service("/api/v1/provinces")
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
+
+    def test_resolve_districts_routes_to_academics(self):
+        url_key, name = resolve_service("/api/v1/districts")
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
 
     def test_resolve_fees(self):
+        # PH2-3: /api/v1/fees/* now routes to the renamed `finance` service
+        # via FINANCE_SERVICE_URL. The public path is unchanged.
         url_key, name = resolve_service("/api/v1/fees/invoices")
-        assert url_key == "FEES_SERVICE_URL"
+        assert url_key == "FINANCE_SERVICE_URL"
+        assert name == "finance"
 
     def test_resolve_communication(self):
+        # PH2-4: /api/v1/comm/* now routes to the renamed `communications`
+        # service via COMMUNICATIONS_SERVICE_URL. Public path unchanged.
         url_key, name = resolve_service("/api/v1/comm/announcements")
-        assert url_key == "COMMUNICATION_SERVICE_URL"
+        assert url_key == "COMMUNICATIONS_SERVICE_URL"
+        assert name == "communications"
 
     def test_resolve_reports(self):
+        # PH2-11: /reports/* now routes to the academics service. The
+        # reporting-service container has no HTTP surface anymore — it's
+        # a pure Kafka consumer + CLI tools.
         url_key, name = resolve_service("/api/v1/reports/dashboard")
-        assert url_key == "REPORTING_SERVICE_URL"
+        assert url_key == "ACADEMICS_SERVICE_URL"
+        assert name == "academics"
 
     def test_resolve_unknown_returns_none(self):
         url_key, name = resolve_service("/api/v1/nonexistent")
@@ -789,31 +940,64 @@ class TestGatewayAuth:
 
 class TestGatewayRateLimiting:
     def test_rate_limit_returns_429(self):
-        """Exhaust rate limit and verify 429 response."""
+        """Exhaust rate limit and verify 429 response.
+
+        BUG-006: in the gateway test env REDIS_ENABLED=false, so the
+        module-level rate_limiter is None and rate-limiting is bypassed by
+        design. For this integration test we install a FakeRedis-backed
+        limiter into ``app.main`` for the duration of the test.
+        """
         client = _get_test_client()
         token = _make_token(user_id=str(uuid.uuid4()))  # Unique user
 
-        # Mock proxy to avoid downstream calls
-        with patch("app.main.proxy") as mock_proxy:
-            mock_proxy.forward = AsyncMock(return_value={
-                "status_code": 200, "body": {"data": []}, "latency_ms": 1,
-            })
-            # Exhaust rate limit (default 60/min)
-            for _ in range(settings.DEFAULT_RATE_LIMIT):
-                client.get("/api/v1/students",
-                           headers={"Authorization": f"Bearer {token}"})
+        import app.main as _gateway_main
+        _saved_limiter = _gateway_main.rate_limiter
+        _gateway_main.rate_limiter = RateLimiter(redis_client=FakeRedis())
+        try:
+            with patch("app.main.proxy") as mock_proxy:
+                mock_proxy.forward = AsyncMock(return_value={
+                    "status_code": 200, "body": {"data": []}, "latency_ms": 1,
+                })
+                # Exhaust rate limit (default 60/min)
+                for _ in range(settings.DEFAULT_RATE_LIMIT):
+                    client.get("/api/v1/students",
+                               headers={"Authorization": f"Bearer {token}"})
 
-            # Next request should be 429
-            resp = client.get("/api/v1/students",
-                              headers={"Authorization": f"Bearer {token}"})
+                # Next request should be 429
+                resp = client.get("/api/v1/students",
+                                  headers={"Authorization": f"Bearer {token}"})
 
-        assert resp.status_code == 429
-        data = resp.json()
-        assert data["error"]["code"] == "RATE_LIMITED"
-        assert "limit" in data["error"]["details"]
-        assert "retry_after" in data["error"]["details"]
-        assert "Retry-After" in resp.headers
-        assert "X-Request-Id" in resp.headers
+            assert resp.status_code == 429
+            data = resp.json()
+            assert data["error"]["code"] == "RATE_LIMITED"
+            assert "limit" in data["error"]["details"]
+            assert "retry_after" in data["error"]["details"]
+            assert "Retry-After" in resp.headers
+            assert "X-Request-Id" in resp.headers
+        finally:
+            _gateway_main.rate_limiter = _saved_limiter
+
+    def test_rate_limit_survives_gateway_restart(self):
+        """BUG-006 core: state lives in Redis, not in the gateway process.
+
+        We simulate a gateway restart by creating a NEW RateLimiter pointing
+        at the same FakeRedis store. The bucket from before the "restart"
+        must still be there — proving the limit isn't wide-open after every
+        process bounce as the in-memory implementation was.
+        """
+        shared = FakeRedis()
+        rl_before = RateLimiter(redis_client=shared)
+        for _ in range(5):
+            rl_before.check("survives:user", 5, 60)
+        # First instance is at limit.
+        allowed_before, _, _ = rl_before.check("survives:user", 5, 60)
+        assert allowed_before is False
+
+        # "Restart": a brand new RateLimiter pointing at the same store.
+        rl_after = RateLimiter(redis_client=shared)
+        allowed_after, _, _ = rl_after.check("survives:user", 5, 60)
+        # Bucket should still be counting — the new process inherits state.
+        assert allowed_after is False
 
 
 class TestGatewayRequestId:
@@ -877,7 +1061,10 @@ class TestGatewayErrorNormalization:
         assert resp.status_code == 504
         data = resp.json()
         assert data["error"]["code"] == "GATEWAY_TIMEOUT"
-        assert data["error"]["details"].get("downstream_service") == "student-service"
+        # PH2-10: /api/v1/students now resolves to the consolidated academics
+        # service, so the error envelope reports "academics" as the
+        # downstream rather than the retired "student-service" name.
+        assert data["error"]["details"].get("downstream_service") == "academics"
 
     def test_downstream_connect_error_returns_502(self):
         client = _get_test_client()

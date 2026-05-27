@@ -14,18 +14,16 @@ Integration tests for route handlers:
   - Pagination
 """
 import os
-import uuid
 from datetime import date, timedelta
-from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
 
+# PH2-11: route-handler tests moved to services/academics/tests/. What
+# remains in this file is the pure rules-engine: no FastAPI, no HTTP, no
+# DB. Only the env vars the engine module's import chain still needs.
 os.environ["DATABASE_URL"] = "sqlite:///./test_reporting.db"
 os.environ["JWT_SECRET_KEY"] = "test-secret"
 os.environ["KAFKA_ENABLED"] = "false"
-os.environ["STUDENT_SERVICE_URL"] = "http://student-service:8000"
-os.environ["ATTENDANCE_SERVICE_URL"] = "http://attendance-service:8000"
-os.environ["FEES_SERVICE_URL"] = "http://fees-service:8000"
 
 from app.services.dropout_service import DropoutRiskEngine
 
@@ -368,220 +366,17 @@ class TestCombinedScenarios:
             assert len(sig["evidence"]) > 0
 
 
-# ═══════════════════════════════════════════
-# Route Handler Tests (mocked HTTP)
-# ═══════════════════════════════════════════
-
-class TestDropoutRoutes:
-    """Test the FastAPI route handlers with mocked downstream calls."""
-
-    @pytest.fixture
-    def client(self):
-        from fastapi.testclient import TestClient
-        from app.main import app
-        return TestClient(app)
-
-    @pytest.fixture
-    def token(self):
-        from jose import jwt
-        payload = {
-            "sub": str(uuid.uuid4()),
-            "school_id": str(uuid.uuid4()),
-            "type": "access",
-            "role": "admin",
-            "permissions": ["report:read"],
-        }
-        return jwt.encode(payload, "test-secret", algorithm="HS256")
-
-    @pytest.fixture
-    def school_id(self, token):
-        from jose import jwt
-        return jwt.decode(token, "test-secret", algorithms=["HS256"])["school_id"]
-
-    def _mock_students(self, n=3):
-        """Build mock student list response."""
-        students = [
-            {"id": str(uuid.uuid4()), "student_code": f"STU{i:03d}",
-             "first_name": f"Student{i}", "last_name": f"Last{i}"}
-            for i in range(n)
-        ]
-        return {"data": students, "meta": {"total": n, "page": 1, "page_size": 100}}
-
-    def _mock_trend(self, days_str="P" * 30):
-        """Build mock attendance trend response."""
-        base = date(2026, 6, 15) - timedelta(days=len(days_str) - 1)
-        days = [
-            {"date": (base + timedelta(days=i)).isoformat(), "status": s}
-            for i, s in enumerate(days_str)
-        ]
-        return {"data": {"days": days}}
-
-    def _mock_invoices(self, invoices=None):
-        """Build mock invoice list response."""
-        return {"data": invoices or []}
-
-    @patch("app.api.routes.httpx.AsyncClient")
-    def test_dropout_summary(self, mock_client_cls, client, token):
-        """GET /reports/dropout/summary returns correct structure."""
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        # Mock all HTTP calls
-        student_resp = MagicMock()
-        student_resp.status_code = 200
-        student_resp.json.return_value = self._mock_students(2)
-
-        trend_resp = MagicMock()
-        trend_resp.status_code = 200
-        trend_resp.json.return_value = self._mock_trend("P" * 30)
-
-        invoice_resp = MagicMock()
-        invoice_resp.status_code = 200
-        invoice_resp.json.return_value = self._mock_invoices()
-
-        mock_client.get = AsyncMock(side_effect=[
-            student_resp, trend_resp, invoice_resp, trend_resp, invoice_resp,
-        ])
-
-        resp = client.get(
-            "/api/v1/reports/dropout/summary",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert "total_students" in data
-        assert "at_risk_count" in data
-        assert "band_breakdown" in data
-        assert "top_signals" in data
-        assert set(data["band_breakdown"].keys()) == {"LOW", "MEDIUM", "HIGH", "CRITICAL"}
-
-    @patch("app.api.routes.httpx.AsyncClient")
-    def test_dropout_students_paginated(self, mock_client_cls, client, token):
-        """GET /reports/dropout/students returns paginated list."""
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        student_resp = MagicMock()
-        student_resp.status_code = 200
-        student_resp.json.return_value = self._mock_students(5)
-
-        trend_resp = MagicMock()
-        trend_resp.status_code = 200
-        trend_resp.json.return_value = self._mock_trend("P" * 30)
-
-        invoice_resp = MagicMock()
-        invoice_resp.status_code = 200
-        invoice_resp.json.return_value = self._mock_invoices()
-
-        mock_client.get = AsyncMock(side_effect=[
-            student_resp,
-            *[r for _ in range(5) for r in (trend_resp, invoice_resp)],
-        ])
-
-        resp = client.get(
-            "/api/v1/reports/dropout/students?page=1&page_size=2",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        body = resp.json()
-        assert len(body["data"]) == 2
-        assert body["meta"]["total"] == 5
-        assert body["meta"]["has_next"] is True
-        # Check student fields
-        s = body["data"][0]
-        assert "student_id" in s
-        assert "risk_score" in s
-        assert "risk_band" in s
-
-    @patch("app.api.routes.httpx.AsyncClient")
-    def test_dropout_student_detail(self, mock_client_cls, client, token):
-        """GET /reports/dropout/student/{id} returns full risk breakdown."""
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        trend_resp = MagicMock()
-        trend_resp.status_code = 200
-        trend_resp.json.return_value = self._mock_trend("P" * 25 + "AAAAA")
-
-        invoice_resp = MagicMock()
-        invoice_resp.status_code = 200
-        invoice_resp.json.return_value = self._mock_invoices()
-
-        mock_client.get = AsyncMock(side_effect=[trend_resp, invoice_resp])
-
-        sid = str(uuid.uuid4())
-        resp = client.get(
-            f"/api/v1/reports/dropout/student/{sid}",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()["data"]
-        assert data["student_id"] == sid
-        assert data["risk_score"] == 40  # CONSEC_5(40), rate 83.3% → no rate signal
-        assert data["risk_band"] == "MEDIUM"
-        assert data["lookback_days"] == 30
-        assert "computed_at" in data
-        assert len(data["signals"]) >= 1
-
-    @patch("app.api.routes.httpx.AsyncClient")
-    def test_dropout_students_filter_by_band(self, mock_client_cls, client, token):
-        """GET /reports/dropout/students?band=LOW filters correctly."""
-        mock_client = AsyncMock()
-        mock_client_cls.return_value.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client_cls.return_value.__aexit__ = AsyncMock(return_value=False)
-
-        student_resp = MagicMock()
-        student_resp.status_code = 200
-        student_resp.json.return_value = self._mock_students(2)
-
-        trend_resp = MagicMock()
-        trend_resp.status_code = 200
-        trend_resp.json.return_value = self._mock_trend("P" * 30)
-
-        invoice_resp = MagicMock()
-        invoice_resp.status_code = 200
-        invoice_resp.json.return_value = self._mock_invoices()
-
-        mock_client.get = AsyncMock(side_effect=[
-            student_resp, trend_resp, invoice_resp, trend_resp, invoice_resp,
-        ])
-
-        resp = client.get(
-            "/api/v1/reports/dropout/students?band=LOW",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert resp.status_code == 200
-        for s in resp.json()["data"]:
-            assert s["risk_band"] == "LOW"
-
-    def test_dropout_summary_requires_auth(self, client):
-        """Endpoints require valid JWT."""
-        resp = client.get("/api/v1/reports/dropout/summary")
-        assert resp.status_code in (401, 403)
-
-    def test_dropout_students_requires_auth(self, client):
-        resp = client.get("/api/v1/reports/dropout/students")
-        assert resp.status_code in (401, 403)
-
-    def test_dropout_detail_requires_auth(self, client):
-        resp = client.get(f"/api/v1/reports/dropout/student/{uuid.uuid4()}")
-        assert resp.status_code in (401, 403)
-
 
 # ═══════════════════════════════════════════
-# Tenant Isolation
+# PH2-11 — route tests MOVED
 # ═══════════════════════════════════════════
-
-class TestDropoutTenantIsolation:
-
-    def test_different_schools_isolated(self):
-        """Risk computation is per-student, inherently isolated."""
-        days_a = _days("A" * 30)
-        days_b = _days("P" * 30)
-        risk_a = DropoutRiskEngine.compute(days_a, [], today=TODAY)
-        risk_b = DropoutRiskEngine.compute(days_b, [], today=TODAY)
-        assert risk_a["risk_band"] == "CRITICAL"
-        assert risk_b["risk_band"] == "LOW"
+# The HTTP route layer for /reports/dropout/* no longer lives in
+# reporting-service. Equivalent coverage is at:
+#   services/academics/tests/test_reports_query.py
+#     ├ TestDropoutEngineBoundary          (this engine wired through academics)
+#     ├ TestDropoutSummaryInProcess
+#     └ TestDropoutDetailInProcess
+#
+# The pure-compute classes above (TestAttendanceSignals, TestFeeSignals,
+# TestBandBoundaries, TestCombinedScenarios) stay here as the engine
+# canonical owner — academics imports the same engine module.

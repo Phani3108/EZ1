@@ -1,0 +1,168 @@
+{
+  "title": "EduZim — Services Overview",
+  "uid": "eduzim-services-overview",
+  "tags": ["eduzim", "overview", "phase-6"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "label": "Service",
+        "type": "query",
+        "datasource": "Prometheus",
+        "query": "label_values(eduzim_http_requests_total, service)",
+        "current": { "selected": false, "text": "All", "value": "$__all" },
+        "includeAll": true,
+        "multi": true,
+        "refresh": 2
+      }
+    ]
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Request rate (RPS) by service",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(eduzim_http_requests_total{service=~\"$service\"}[1m]))",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "reqps", "min": 0 } }
+    },
+    {
+      "id": 2,
+      "title": "Error rate (5xx %) by service",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "targets": [
+        {
+          "expr": "sum by (service) (rate(eduzim_http_requests_total{service=~\"$service\", status=~\"5..\"}[5m])) / sum by (service) (rate(eduzim_http_requests_total{service=~\"$service\"}[5m]))",
+          "legendFormat": "{{service}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.01, "color": "yellow" },
+              { "value": 0.05, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "p50 / p95 / p99 latency by service",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 8, "w": 24, "h": 9 },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (service, le) (rate(eduzim_http_request_duration_seconds_bucket{service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (service, le) (rate(eduzim_http_request_duration_seconds_bucket{service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (service, le) (rate(eduzim_http_request_duration_seconds_bucket{service=~\"$service\"}[5m])))",
+          "legendFormat": "{{service}} p99"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 } }
+    },
+    {
+      "id": 4,
+      "title": "In-flight requests by service",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 17, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (service) (eduzim_http_in_flight_requests{service=~\"$service\"})",
+          "legendFormat": "{{service}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Per-route p95 latency (top 10)",
+      "type": "table",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 17, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "topk(10, histogram_quantile(0.95, sum by (service, route, le) (rate(eduzim_http_request_duration_seconds_bucket{service=~\"$service\"}[10m]))))",
+          "format": "table",
+          "instant": true
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "Kafka consumer lag (reporting-service)",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 0, "y": 24, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "max by (consumergroup, topic) (kafka_consumergroup_lag_seconds{consumergroup=\"reporting-service\"})",
+          "legendFormat": "{{topic}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 10, "color": "yellow" },
+              { "value": 30, "color": "red" }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "PgBouncer pool utilization",
+      "type": "timeseries",
+      "datasource": "Prometheus",
+      "gridPos": { "x": 12, "y": 24, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "pgbouncer_pools_client_active_connections / pgbouncer_pools_max_client_connections",
+          "legendFormat": "{{database}} pool"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "value": null, "color": "green" },
+              { "value": 0.7, "color": "yellow" },
+              { "value": 0.85, "color": "red" }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

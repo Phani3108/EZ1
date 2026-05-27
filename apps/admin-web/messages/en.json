@@ -96,7 +96,11 @@
     "ministry": "Aligned with the Ministry of Primary and Secondary Education",
     "vision2030": "Supporting Zimbabwe's Vision 2030",
     "copyright": "© {year} EduZim. All rights reserved.",
-    "motto": "Unity, Freedom, Work"
+    "motto": "Unity, Freedom, Work",
+    "privacyPolicy": "Privacy Policy",
+    "retentionPolicy": "Data Retention",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
   },
   "national": {
     "title": "National Alignment",

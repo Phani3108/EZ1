@@ -1,0 +1,223 @@
+# Alertmanager rules — PH6-1 / Phase 6.
+#
+# The four alerts called out in the Phase 6 gate:
+#   1. Gateway 5xx rate > 1%
+#   2. Kafka consumer lag > 30s
+#   3. DB connection pool > 80% saturated
+#   4. Disk usage > 75%
+#
+# Plus two infrastructure-health alerts that any sensible alerting
+# baseline includes: service-down (any target unreachable for 2m) and
+# high-error-rate per service (any service's eduzim_http 5xx > 5% for 5m).
+#
+# Severity convention:
+#   - `critical` — pages on-call immediately
+#   - `warning`  — emails the on-call list, no page
+#
+# Routing happens in alertmanager.yml; this file only declares the
+# conditions.
+
+groups:
+
+  # ───────────── Service health ─────────────
+
+  - name: service-health
+    interval: 30s
+    rules:
+      - alert: ServiceDown
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Service {{ $labels.job }} is DOWN"
+          description: |
+            Prometheus scrape for {{ $labels.job }} has been failing for >2 minutes.
+            This means the container is unreachable or the /metrics endpoint
+            is errored. Check `docker compose ps` and the service's logs.
+
+      - alert: HighErrorRate
+        expr: |
+          (
+            sum by (service) (
+              rate(eduzim_http_requests_total{status=~"5.."}[5m])
+            )
+            /
+            sum by (service) (
+              rate(eduzim_http_requests_total[5m])
+            )
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} 5xx rate > 5% (5m window)"
+          description: |
+            More than 5% of requests to {{ $labels.service }} are returning
+            5xx. Check the service's recent logs in Loki and recent deploys.
+
+  # ───────────── 1. Gateway 5xx > 1% ─────────────
+
+  - name: gateway-quality
+    interval: 30s
+    rules:
+      - alert: GatewayHighErrorRate
+        expr: |
+          (
+            sum(rate(gateway_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(gateway_requests_total[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          component: gateway
+        annotations:
+          summary: "Gateway 5xx rate exceeds 1% over 5m"
+          description: |
+            The edge gateway is returning >1% 5xx. Either a downstream
+            service is degraded (check `HighErrorRate` on the affected
+            service) or the gateway itself has a problem.
+
+      - alert: GatewayRateLimitSpike
+        expr: |
+          rate(gateway_rate_limit_blocks_total[5m]) > 50
+        for: 10m
+        labels:
+          severity: warning
+          component: gateway
+        annotations:
+          summary: "Sustained rate-limit blocks > 50/s for 10m"
+          description: |
+            Either a real DoS attempt, a misbehaving client, or our
+            limits are too tight. Check `eduzim_http_requests_total{status="429"}`
+            broken down by route + IP.
+
+  # ───────────── 2. Kafka consumer lag > 30s ─────────────
+
+  - name: kafka-health
+    interval: 30s
+    rules:
+      - alert: KafkaConsumerLag
+        # kafka_exporter exposes consumergroup_lag in seconds.
+        # Threshold 30s; sustain for 5m to avoid paging on a transient burst.
+        expr: |
+          max by (consumergroup, topic) (
+            kafka_consumergroup_lag_seconds
+          ) > 30
+        for: 5m
+        labels:
+          severity: critical
+          component: kafka
+        annotations:
+          summary: "Kafka consumer {{ $labels.consumergroup }} lag > 30s on {{ $labels.topic }}"
+          description: |
+            The reporting-service (or another consumer) is falling behind.
+            Dashboard tiles built from these events will appear stale.
+            Check `docker compose logs reporting-service` and broker health.
+
+      - alert: KafkaBrokerDown
+        expr: kafka_brokers < 3
+        for: 2m
+        labels:
+          severity: warning
+          component: kafka
+        annotations:
+          summary: "Kafka cluster has fewer than 3 brokers"
+          description: |
+            At least one Kafka broker is offline. The cluster is still
+            available (3-way replication, min.ISR=2) but a second loss
+            blocks writes. Restore the broker before the next outage.
+
+  # ───────────── 3. DB connection pool > 80% ─────────────
+
+  - name: postgres-health
+    interval: 30s
+    rules:
+      - alert: PgBouncerPoolSaturated
+        expr: |
+          (pgbouncer_pools_client_active_connections / pgbouncer_pools_max_client_connections) > 0.80
+        for: 5m
+        labels:
+          severity: warning
+          component: postgres
+        annotations:
+          summary: "pgbouncer pool > 80% saturated"
+          description: |
+            Either traffic is up (normal — increase DEFAULT_POOL_SIZE)
+            or a service is leaking connections. Check the `Service Overview`
+            dashboard for per-service request rates.
+
+      - alert: PostgresDown
+        expr: pg_up == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: postgres
+        annotations:
+          summary: "Postgres scrape is failing"
+          description: |
+            postgres-exporter cannot reach the Postgres primary. If HA is
+            enabled, repmgr may be mid-failover; check pg-0 / pg-1 status.
+
+      - alert: PostgresReplicationLag
+        expr: pg_replication_lag_seconds > 60
+        for: 5m
+        labels:
+          severity: warning
+          component: postgres
+        annotations:
+          summary: "Postgres replica is > 60s behind primary"
+          description: |
+            On primary failover, the replica may not have all the latest
+            WAL. Data-loss window = lag at the moment of failover.
+
+  # ───────────── 4. Disk usage > 75% ─────────────
+
+  - name: host-health
+    interval: 30s
+    rules:
+      - alert: DiskUsageHigh
+        # node_exporter exposes filesystem fill ratio. Filter to root
+        # mount of containers (skip overlay / docker-internal mounts).
+        expr: |
+          (
+            (
+              node_filesystem_size_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+              -
+              node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+            )
+            /
+            node_filesystem_size_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+          ) > 0.75
+        for: 10m
+        labels:
+          severity: warning
+          component: host
+        annotations:
+          summary: "Disk on {{ $labels.instance }} ({{ $labels.mountpoint }}) > 75%"
+          description: |
+            Filesystem is filling up. If this is the Postgres volume,
+            urgent — prune old WAL or expand the disk. Otherwise check
+            log retention.
+
+      - alert: DiskUsageCritical
+        expr: |
+          (
+            (
+              node_filesystem_size_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+              -
+              node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+            )
+            /
+            node_filesystem_size_bytes{fstype!~"tmpfs|overlay|devtmpfs|squashfs"}
+          ) > 0.90
+        for: 5m
+        labels:
+          severity: critical
+          component: host
+        annotations:
+          summary: "Disk on {{ $labels.instance }} ({{ $labels.mountpoint }}) > 90%"
+          description: |
+            Filesystem nearly full. Writes will start failing within
+            hours. Expand the disk NOW.

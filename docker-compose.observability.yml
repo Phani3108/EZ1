@@ -1,0 +1,282 @@
+# EduZim — Phase 6 observability overlay.
+#
+# Usage:
+#     docker compose -f docker-compose.prod.yml \
+#                    -f docker-compose.observability.yml up -d
+#
+# Optionally combine with the HA overlay:
+#     docker compose -f docker-compose.prod.yml \
+#                    -f docker-compose.ha.yml \
+#                    -f docker-compose.observability.yml up -d
+#
+# Adds the four pillars:
+#
+#   * METRICS — Prometheus scrapes every service's /metrics; rules in
+#               infra/observability/rules/; Alertmanager routes the
+#               firings to Slack + email.
+#   * LOGS    — Loki receives docker container stdout via Promtail.
+#               Structured JSON logs from eduzim_shared.logging parse
+#               into queryable labels (level, service, request_id,
+#               trace_id).
+#   * TRACES  — Tempo accepts OTLP from every service (via
+#               eduzim_shared.tracing). Service graphs auto-derived.
+#   * ERRORS  — Sentry is wired via SENTRY_DSN env (app_factory).
+#               Not a container here — Sentry is hosted.
+#
+# Plus the exporters Prometheus scrapes:
+#   * node-exporter        — host CPU / memory / disk
+#   * postgres-exporter    — connection counts, lag, slow queries
+#   * pgbouncer-exporter   — pool saturation
+#   * kafka-exporter       — broker + consumer-group lag
+
+version: "3.9"
+
+services:
+  # ════════════════════════════════════════════════════════════════
+  # Service-level env: enable tracing + (optional) Sentry.
+  # ════════════════════════════════════════════════════════════════
+  # Each app service inherits these env values. EDUZIM_TRACING_ENABLED
+  # flips the eduzim_shared.tracing branch in app_factory; OTEL_EXPORTER_*
+  # tells the exporter where Tempo lives.
+  api-gateway:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.10"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+      SENTRY_TRACES_SAMPLE_RATE: "0.05"
+
+  identity:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.10"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+
+  academics:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.10"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+
+  finance:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.10"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+
+  communications:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      OTEL_TRACES_SAMPLER: parentbased_traceidratio
+      OTEL_TRACES_SAMPLER_ARG: "0.10"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+
+  reporting-service:
+    environment:
+      EDUZIM_TRACING_ENABLED: "true"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://tempo:4317"
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      SENTRY_ENVIRONMENT: ${ENVIRONMENT:-staging}
+
+  # ════════════════════════════════════════════════════════════════
+  # Prometheus + Grafana (prod-equivalents of the dev containers)
+  # ════════════════════════════════════════════════════════════════
+  # These are only present when this overlay is used WITH
+  # docker-compose.prod.yml (which doesn't ship Prometheus/Grafana
+  # by default — only docker-compose.yml does, for dev).
+  prometheus:
+    image: prom/prometheus:v2.55.0
+    container_name: eduzim-prometheus
+    restart: always
+    volumes:
+      - ./infra/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./infra/observability/rules:/etc/prometheus/rules:ro
+      - prometheus_data:/prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+      - --web.enable-lifecycle
+      - --web.enable-remote-write-receiver   # so Tempo can push exemplars
+    networks:
+      - eduzim-network
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    container_name: eduzim-grafana
+    restart: always
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD missing}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./infra/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./infra/observability/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3030:3000"
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+    networks:
+      - eduzim-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Alertmanager (PH6-1)
+  # ════════════════════════════════════════════════════════════════
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    container_name: eduzim-alertmanager
+    restart: always
+    volumes:
+      - ./infra/observability/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+      - --cluster.listen-address=
+    ports:
+      - "9093:9093"
+    environment:
+      ALERT_SMTP_HOST: ${ALERT_SMTP_HOST:-}
+      ALERT_SMTP_USER: ${ALERT_SMTP_USER:-}
+      ALERT_SMTP_PASSWORD: ${ALERT_SMTP_PASSWORD:-}
+      ALERT_EMAIL_FROM: ${ALERT_EMAIL_FROM:-alerts@eduzim.invalid}
+      ALERT_EMAIL_TO_ENG: ${ALERT_EMAIL_TO_ENG:-eng@eduzim.invalid}
+      ALERT_SLACK_WEBHOOK_OPS_PAGES: ${ALERT_SLACK_WEBHOOK_OPS_PAGES:-}
+      ALERT_SLACK_WEBHOOK_OPS_DIGEST: ${ALERT_SLACK_WEBHOOK_OPS_DIGEST:-}
+    networks:
+      - eduzim-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Loki + Promtail (INFRA-009)
+  # ════════════════════════════════════════════════════════════════
+  loki:
+    image: grafana/loki:3.2.0
+    container_name: eduzim-loki
+    restart: always
+    volumes:
+      - ./infra/observability/loki/loki.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3100:3100"
+    networks:
+      - eduzim-network
+
+  promtail:
+    image: grafana/promtail:3.2.0
+    container_name: eduzim-promtail
+    restart: always
+    volumes:
+      - ./infra/observability/promtail/promtail.yml:/etc/promtail/config.yml:ro
+      # Read the host's docker socket so Promtail can discover
+      # containers and tail their JSON log files directly.
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    networks:
+      - eduzim-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Tempo (INFRA-008)
+  # ════════════════════════════════════════════════════════════════
+  tempo:
+    image: grafana/tempo:2.6.1
+    container_name: eduzim-tempo
+    restart: always
+    volumes:
+      - ./infra/observability/tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo_data:/tmp/tempo
+    command: -config.file=/etc/tempo.yml
+    ports:
+      - "3200:3200"     # Tempo HTTP API (Grafana queries this)
+      - "4317:4317"     # OTLP gRPC (services push to here)
+      - "4318:4318"     # OTLP HTTP
+    networks:
+      - eduzim-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Exporters (scraped by Prometheus)
+  # ════════════════════════════════════════════════════════════════
+
+  # Host metrics — CPU / memory / disk / network. Reads /proc + /sys
+  # from the host via the bind mounts.
+  node-exporter:
+    image: prom/node-exporter:v1.8.2
+    container_name: eduzim-node-exporter
+    restart: always
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - --path.procfs=/host/proc
+      - --path.sysfs=/host/sys
+      - --path.rootfs=/rootfs
+      - --collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)
+    pid: host
+    networks:
+      - eduzim-network
+
+  # Postgres metrics — connection counts, replication lag, slow
+  # queries. Connects via pgbouncer:6432 so it doesn't compete with
+  # app pools.
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.16.0
+    container_name: eduzim-postgres-exporter
+    restart: always
+    environment:
+      DATA_SOURCE_NAME: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD:-eduzim_secret}@pgbouncer:6432/postgres?sslmode=disable"
+    networks:
+      - eduzim-network
+
+  # PgBouncer metrics — pool saturation, wait time. The exporter
+  # connects to the pgbouncer admin database (`pgbouncer`) which lives
+  # on the same port as the data pools.
+  pgbouncer-exporter:
+    image: prometheuscommunity/pgbouncer-exporter:v0.10.0
+    container_name: eduzim-pgbouncer-exporter
+    restart: always
+    environment:
+      PGBOUNCER_EXPORTER_HOST: pgbouncer
+      PGBOUNCER_EXPORTER_PORT: "6432"
+      PGBOUNCER_EXPORTER_USER: ${DB_USER:-eduzim}
+      PGBOUNCER_EXPORTER_PASSWORD: ${DB_PASSWORD:-eduzim_secret}
+    networks:
+      - eduzim-network
+
+  # Kafka broker + consumer-group metrics. Auto-discovers the brokers
+  # via the bootstrap server list.
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    container_name: eduzim-kafka-exporter
+    restart: always
+    command:
+      - --kafka.server=kafka:9092
+    networks:
+      - eduzim-network
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  alertmanager_data:
+  loki_data:
+  tempo_data:

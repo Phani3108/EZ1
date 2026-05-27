@@ -32,6 +32,9 @@ import type {
   Announcement,
   OutboxEntry,
   OutboxStats,
+  MessageThread,
+  ChatMessage,
+  ClassGradebook,
   DashboardData,
   AttendanceTrendPoint,
   FinancialSummaryData,
@@ -353,6 +356,34 @@ export function commApi(client: ApiClient) {
         {},
       );
     },
+
+    // ─── Phase 11b / T-011 — parent-teacher messaging ───
+    listThreads() {
+      return client.get<MessageThread[]>("/api/v1/comm/messages/threads");
+    },
+    createThread(data: { other_user_id: string; other_role: "Teacher" | "Parent" }) {
+      return client.post<MessageThread & { created: boolean }>(
+        "/api/v1/comm/messages/threads",
+        data,
+      );
+    },
+    getThread(id: string) {
+      return client.get<{ thread: MessageThread; messages: ChatMessage[] }>(
+        `/api/v1/comm/messages/threads/${encodeURIComponent(id)}`,
+      );
+    },
+    sendMessage(threadId: string, body: string) {
+      return client.post<ChatMessage>(
+        `/api/v1/comm/messages/threads/${encodeURIComponent(threadId)}/messages`,
+        { body },
+      );
+    },
+    markThreadRead(threadId: string) {
+      return client.post<{ marked_read: number }>(
+        `/api/v1/comm/messages/threads/${encodeURIComponent(threadId)}/read`,
+        {},
+      );
+    },
   };
 }
 
@@ -460,6 +491,16 @@ export function assessmentApi(client: ApiClient) {
       return client.get<ClassPerformance>(
         `/api/v1/assessments/classes/${classId}/performance`,
         params as Record<string, string>
+      );
+    },
+    // Phase 11c / T-015 — cross-assessment gradebook
+    classGradebook(
+      classId: string,
+      params?: { term_id?: string; subject_id?: string },
+    ) {
+      return client.get<ClassGradebook>(
+        `/api/v1/assessments/classes/${classId}/gradebook`,
+        params as Record<string, string>,
       );
     },
   };

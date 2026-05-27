@@ -96,7 +96,11 @@
     "ministry": "Sihambisana loMnyango Wemfundo Yamabanga Aphansi lePhezulu",
     "vision2030": "Sisekela iZimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Wonke amalungelo agcinwe.",
-    "motto": "Ubunye, Inkululeko, Umsebenzi"
+    "motto": "Ubunye, Inkululeko, Umsebenzi",
+    "privacyPolicy": "Inqubomgomo Yobumfihlo",
+    "retentionPolicy": "Ukugcinwa Kolwazi",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
   },
   "national": {
     "title": "Okwesizwe",

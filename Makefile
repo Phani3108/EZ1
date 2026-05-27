@@ -23,7 +23,7 @@ down:
 logs:
 	docker compose logs -f
 
-# Logs for a specific service (usage: make log s=auth-service)
+# Logs for a specific service (usage: make log s=identity)
 log:
 	docker compose logs -f $(s)
 
@@ -31,18 +31,20 @@ log:
 test:
 	@echo "🧪 Running shared lib tests..."
 	cd shared && python3 -m pytest tests/ -v
-	@echo "🧪 Running auth-service tests..."
-	cd services/auth-service && python3 -m pytest tests/ -v
+	@echo "🧪 Running identity tests..."
+	cd services/identity && python3 -m pytest tests/ -v
+	@echo "🧪 Running academics tests..."
+	cd services/academics && python3 -m pytest tests/ -v
 	@echo "🧪 Running school-service tests..."
 	cd services/school-service && python3 -m pytest tests/ -v
 	@echo "🧪 Running student-service tests..."
 	cd services/student-service && python3 -m pytest tests/ -v
 	@echo "🧪 Running attendance-service tests..."
 	cd services/attendance-service && python3 -m pytest tests/ -v
-	@echo "🧪 Running fees-service tests..."
-	cd services/fees-service && python3 -m pytest tests/ -v
-	@echo "🧪 Running communication-service tests..."
-	cd services/communication-service && python3 -m pytest tests/ -v
+	@echo "🧪 Running finance tests..."
+	cd services/finance && python3 -m pytest tests/ -v
+	@echo "🧪 Running communications tests..."
+	cd services/communications && python3 -m pytest tests/ -v
 	@echo "🧪 Running reporting-service tests..."
 	cd services/reporting-service && python3 -m pytest tests/ -v
 	@echo "🧪 Running assessment-service tests..."

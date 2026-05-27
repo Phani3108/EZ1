@@ -445,3 +445,40 @@ describe("SyncProvider context shape", () => {
     expect(expectedKeys).toContain("retryAll");
   });
 });
+
+// ─── BUG-005: attendance-tab must pass user.school_id, NOT an empty string ─────
+//
+// The attendance grid previously enqueued `schoolId: ""` because the wire-up
+// to user context was missing. That meant the sync handler tagged each
+// queued action with an empty tenant, forcing the backend to reverse-infer
+// the school. Regression guard: source must reference `user.school_id` and
+// must NOT contain `schoolId: ""`.
+
+import { readFileSync, existsSync } from "node:fs";
+import { resolve } from "node:path";
+
+describe("BUG-005: attendance-tab carries the authenticated user's school", () => {
+  // Locate the source from the project root regardless of cwd.
+  const candidatePaths = [
+    resolve(__dirname, "../src/app/(teacher)/classes/[id]/attendance-tab.tsx"),
+    resolve(process.cwd(), "src/app/(teacher)/classes/[id]/attendance-tab.tsx"),
+    resolve(process.cwd(), "apps/teacher-web/src/app/(teacher)/classes/[id]/attendance-tab.tsx"),
+  ];
+  const sourcePath = candidatePaths.find((p) => existsSync(p));
+
+  it("source file exists at one of the candidate paths", () => {
+    expect(sourcePath).toBeTruthy();
+  });
+
+  it("does NOT enqueue a literal empty-string schoolId", () => {
+    if (!sourcePath) return;
+    const src = readFileSync(sourcePath, "utf8");
+    expect(src).not.toMatch(/schoolId:\s*""/);
+  });
+
+  it("references user.school_id when building the enqueue payload", () => {
+    if (!sourcePath) return;
+    const src = readFileSync(sourcePath, "utf8");
+    expect(src).toMatch(/schoolId:\s*user\.school_id/);
+  });
+});

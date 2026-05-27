@@ -1,9 +1,11 @@
 import os
 
+# PH2-2: auth-service renamed to identity. Other renames happen in PH2-3/4.
 services = [
-    "auth-service", "school-service", "student-service", "attendance-service",
-    "fees-service", "communication-service", "reporting-service",
-    "assessment-service", "api-gateway"
+    "identity", "school-service", "student-service", "attendance-service",
+    "finance", "communications", "reporting-service",
+    "assessment-service", "api-gateway",
+    "academics",  # PH2-6: school-service mirror; cuts over at PH2-10
 ]
 
 def update_dockerfile(svc):
@@ -27,8 +29,8 @@ def update_dockerfile(svc):
         elif "RUN pip install -e /shared" in line:
             new_lines.append("RUN pip install -e /shared\n")
         elif 'CMD ["sh", "-c", "alembic upgrade head && ' in line:
-            # Remove alembic for non-auth services
-            if svc != "auth-service":
+            # Remove alembic for non-identity services
+            if svc != "identity":
                 new_lines.append(line.replace("alembic upgrade head && ", ""))
             else:
                 new_lines.append(line)

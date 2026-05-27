@@ -61,61 +61,48 @@ def _meta(request: Request) -> dict:
 # label/category are surfaced to the frontend so we don't hardcode copy there.
 INTEGRATIONS = [
     {
-        "id": "auth-service",
+        # PH2-2: id and url_key updated to the renamed `identity` service.
+        "id": "identity",
         "label": "Authentication",
         "category": "platform",
-        "url_key": "AUTH_SERVICE_URL",
+        "url_key": "IDENTITY_SERVICE_URL",
         "description": "User sign-in, sessions and permissions.",
     },
     {
-        "id": "school-service",
-        "label": "School & Academics",
+        # PH2-10: four service cards (school / student / attendance / assessment)
+        # consolidated into one `academics` card now that all academic domains
+        # are served by the same service.
+        "id": "academics",
+        "label": "Academics (school · students · attendance · assessments)",
         "category": "platform",
-        "url_key": "SCHOOL_SERVICE_URL",
-        "description": "Schools, terms, classes and subjects.",
+        "url_key": "ACADEMICS_SERVICE_URL",
+        "description": (
+            "Schools, terms, classes, subjects, students, parents, enrolments, "
+            "attendance, assessments + marks, plus Zimbabwe geo reference."
+        ),
     },
     {
-        "id": "student-service",
-        "label": "Students & Parents",
-        "category": "platform",
-        "url_key": "STUDENT_SERVICE_URL",
-        "description": "Student records, parents and enrollments.",
-    },
-    {
-        "id": "attendance-service",
-        "label": "Attendance",
-        "category": "operations",
-        "url_key": "ATTENDANCE_SERVICE_URL",
-        "description": "Daily attendance, offline sync and trends.",
-    },
-    {
-        "id": "fees-service",
+        # PH2-3: id and url_key updated to the renamed `finance` service.
+        "id": "finance",
         "label": "Fees & Paynow",
         "category": "money",
-        "url_key": "FEES_SERVICE_URL",
+        "url_key": "FINANCE_SERVICE_URL",
         "description": "Invoices, payments and Paynow integration.",
     },
     {
-        "id": "communication-service",
+        # PH2-4: id and url_key updated to the renamed `communications` service.
+        "id": "communications",
         "label": "Messaging (SMS, WhatsApp, Email)",
         "category": "messaging",
-        "url_key": "COMMUNICATION_SERVICE_URL",
+        "url_key": "COMMUNICATIONS_SERVICE_URL",
         "description": "Announcements and message delivery.",
     },
-    {
-        "id": "reporting-service",
-        "label": "Reports & Analytics",
-        "category": "insight",
-        "url_key": "REPORTING_SERVICE_URL",
-        "description": "Dashboards, dropout risk and exports.",
-    },
-    {
-        "id": "assessment-service",
-        "label": "Assessments",
-        "category": "operations",
-        "url_key": "ASSESSMENT_SERVICE_URL",
-        "description": "Tests, marks and grading.",
-    },
+    # PH2-11: the reporting-service HTTP card is gone. /api/v1/reports/*
+    # is now served by academics; the reporting-service container is a
+    # pure Kafka consumer (no /health endpoint). Its liveness shows up
+    # implicitly in the academics card's read latency — when the consumer
+    # falls behind, the dashboard tile freezes, which is the signal
+    # operators actually want.
 ]
 
 

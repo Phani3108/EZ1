@@ -1,0 +1,465 @@
+# EduZim — Phase 5 High-Availability overlay.
+#
+# Usage:
+#     docker compose -f docker-compose.prod.yml -f docker-compose.ha.yml up -d
+#
+# This file overrides the single-node `postgres`, `kafka`, `zookeeper`,
+# and `redis` services from docker-compose.prod.yml with HA equivalents:
+#
+#   * Postgres   →  bitnami/postgresql-repmgr 2-node cluster
+#                   (pg-0 primary + pg-1 standby, auto-promote on failure)
+#                   + bitnami/pgpool routing layer that detects primary
+#                   and routes writes to it.
+#
+#   * Kafka      →  3-broker KRaft cluster (no Zookeeper).
+#                   replication.factor=3, min.insync.replicas=2.
+#                   The single-node `zookeeper` service is REMOVED.
+#
+#   * Redis      →  1 primary + 1 replica + 3 sentinels (quorum 2).
+#                   Sentinels handle failover when the primary dies.
+#
+# Application services (academics, finance, etc.) don't need to be
+# overridden directly — their DATABASE_URL still points at
+# `pgbouncer:6432`, which now talks to `pgpool` instead of single-node
+# postgres. Their KAFKA_BOOTSTRAP_SERVERS env is overridden below to
+# include all three brokers. Their REDIS_URL switches to the sentinel
+# discovery format.
+#
+# What this file does NOT do:
+#   * Patroni / etcd setup. Bitnami repmgr is simpler and meets the
+#     same HA gate (failover < 60s). Patroni is a reasonable upgrade
+#     once we have an etcd cluster for OTHER reasons (config sharing,
+#     leader election for cron jobs, etc.).
+#   * Multi-region replication. Phase 5 is one-region HA only.
+#     Multi-region is Phase 7+ (and depends on Debate 5 / data residency).
+#   * Cert-manager-style automated TLS rotation. INFRA-019 (mTLS) lives
+#     in this same Phase 5 work, but the cert lifecycle stays manual for
+#     now (rotate via the scripts/generate-mtls-certs.sh script).
+
+version: "3.9"
+
+services:
+  # ════════════════════════════════════════════════════════════════
+  # Postgres HA — bitnami/postgresql-repmgr 2-node cluster
+  # ════════════════════════════════════════════════════════════════
+  # repmgr handles streaming replication + auto-failover. pg-0 is the
+  # initial primary; pg-1 is the standby. On primary loss, repmgr
+  # promotes pg-1. The pgpool service in front knows which node is
+  # primary and routes writes accordingly.
+  #
+  # Volumes: each node has its own persistent volume so a node restart
+  # doesn't wipe its WAL.
+  postgres:
+    # The single-node `postgres` service is OVERRIDDEN to a no-op
+    # because compose can't simply "delete" a service from an overlay.
+    # We point it at a tiny placeholder image; nothing should connect
+    # to this name post-HA-cutover (pgpool replaces it as the entry).
+    image: alpine:3.20
+    container_name: eduzim-postgres-noop
+    command: ["sh", "-c", "echo 'postgres single-node disabled by HA overlay; using pg-0/pg-1+pgpool' && sleep infinity"]
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+    depends_on: []
+    networks:
+      - eduzim-network
+
+  pg-0:
+    image: bitnami/postgresql-repmgr:16
+    container_name: eduzim-pg-0
+    restart: always
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRESQL_USERNAME: ${DB_USER:-eduzim}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+      POSTGRESQL_DATABASE: postgres   # bootstrap db; per-service DBs created via init
+      REPMGR_PASSWORD: ${REPMGR_PASSWORD:-${DB_PASSWORD}}
+      REPMGR_PRIMARY_HOST: pg-0
+      REPMGR_PARTNER_NODES: pg-0,pg-1
+      REPMGR_NODE_NAME: pg-0
+      REPMGR_NODE_NETWORK_NAME: pg-0
+      REPMGR_USERNAME: repmgr
+    volumes:
+      - postgres_pg0_data:/bitnami/postgresql
+      - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=${DB_PASSWORD} pg_isready -U ${DB_USER:-eduzim} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - eduzim-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  pg-1:
+    image: bitnami/postgresql-repmgr:16
+    container_name: eduzim-pg-1
+    restart: always
+    environment:
+      POSTGRESQL_POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRESQL_USERNAME: ${DB_USER:-eduzim}
+      POSTGRESQL_PASSWORD: ${DB_PASSWORD}
+      POSTGRESQL_DATABASE: postgres
+      REPMGR_PASSWORD: ${REPMGR_PASSWORD:-${DB_PASSWORD}}
+      REPMGR_PRIMARY_HOST: pg-0
+      REPMGR_PARTNER_NODES: pg-0,pg-1
+      REPMGR_NODE_NAME: pg-1
+      REPMGR_NODE_NETWORK_NAME: pg-1
+      REPMGR_USERNAME: repmgr
+    volumes:
+      - postgres_pg1_data:/bitnami/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=${DB_PASSWORD} pg_isready -U ${DB_USER:-eduzim} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks:
+      - eduzim-network
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+
+  # pgpool fronts the repmgr cluster. It detects the primary via the
+  # repmgr extension and routes writes accordingly. Reads can also be
+  # spread across replicas, but we keep load-balance=no for v1 to
+  # avoid read-after-write anomalies; revisit once the application
+  # adds explicit read-after-write tolerance.
+  pgpool:
+    image: bitnami/pgpool:4.5
+    container_name: eduzim-pgpool
+    restart: always
+    environment:
+      PGPOOL_BACKEND_NODES: 0:pg-0:5432,1:pg-1:5432
+      PGPOOL_SR_CHECK_USER: ${DB_USER:-eduzim}
+      PGPOOL_SR_CHECK_PASSWORD: ${DB_PASSWORD}
+      PGPOOL_POSTGRES_USERNAME: postgres
+      PGPOOL_POSTGRES_PASSWORD: ${DB_PASSWORD}
+      PGPOOL_ADMIN_USERNAME: admin
+      PGPOOL_ADMIN_PASSWORD: ${PGPOOL_ADMIN_PASSWORD:-${DB_PASSWORD}}
+      PGPOOL_ENABLE_LOAD_BALANCING: "no"
+      PGPOOL_ENABLE_LDAP: "no"
+      PGPOOL_HEALTH_CHECK_USER: ${DB_USER:-eduzim}
+      PGPOOL_HEALTH_CHECK_PASSWORD: ${DB_PASSWORD}
+    depends_on:
+      pg-0:
+        condition: service_healthy
+      pg-1:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+
+  # pgbouncer is REPOINTED at pgpool (port 5432). The application
+  # services still connect to pgbouncer:6432; the routing chain is:
+  #
+  #   app → pgbouncer (transaction pool) → pgpool (HA router) → pg-0/pg-1
+  pgbouncer:
+    environment:
+      DB_USER: ${DB_USER:-eduzim}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: pgpool      # ← was `postgres` in single-node mode
+      DB_PORT: 5432
+      DB_NAME: "*"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      AUTH_TYPE: md5
+    depends_on:
+      pgpool:
+        condition: service_started
+
+  migrations:
+    # Migrations connect via pgpool too (so they hit the current primary).
+    # NOT via pgbouncer — DDL doesn't compose with transaction-mode pooling.
+    environment:
+      DB_USER: ${DB_USER:-eduzim}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: pgpool
+      DB_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on:
+      pgpool:
+        condition: service_started
+
+  # ════════════════════════════════════════════════════════════════
+  # Kafka HA — 3-broker KRaft cluster (no Zookeeper)
+  # ════════════════════════════════════════════════════════════════
+  # KRaft mode removes the zookeeper dependency entirely. Each broker
+  # is both a kafka broker AND a controller (in production at >3 brokers
+  # you'd separate the controller quorum). For 3 nodes, combined mode
+  # is fine.
+  #
+  # Topic-level guarantees configured via create-topics.sh (Phase 5):
+  #   * replication.factor = 3
+  #   * min.insync.replicas = 2
+  #   These force a write to land on at least 2 brokers before acking;
+  #   the broker can lose 1 and reads continue. Lose 2 and writes
+  #   block but no data is lost.
+  zookeeper:
+    # Removed in KRaft mode. Override to a no-op so the compose file
+    # parses; nothing should reference it post-HA-cutover.
+    image: alpine:3.20
+    container_name: eduzim-zookeeper-noop
+    command: ["sh", "-c", "echo 'zookeeper disabled (KRaft mode)' && sleep infinity"]
+
+  kafka:
+    # Override the single-broker `kafka` to a no-op. Three real brokers
+    # are below (kafka-0/1/2).
+    image: alpine:3.20
+    container_name: eduzim-kafka-noop
+    command: ["sh", "-c", "echo 'single-broker kafka disabled by HA overlay; use kafka-0/1/2' && sleep infinity"]
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+
+  kafka-0:
+    image: bitnami/kafka:3.7
+    container_name: eduzim-kafka-0
+    restart: always
+    environment:
+      KAFKA_CFG_NODE_ID: 0
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-0:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - kafka_0_data:/bitnami/kafka
+    networks:
+      - eduzim-network
+
+  kafka-1:
+    image: bitnami/kafka:3.7
+    container_name: eduzim-kafka-1
+    restart: always
+    environment:
+      KAFKA_CFG_NODE_ID: 1
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - kafka_1_data:/bitnami/kafka
+    networks:
+      - eduzim-network
+
+  kafka-2:
+    image: bitnami/kafka:3.7
+    container_name: eduzim-kafka-2
+    restart: always
+    environment:
+      KAFKA_CFG_NODE_ID: 2
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka-0:9093,1@kafka-1:9093,2@kafka-2:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_CFG_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_CFG_MIN_INSYNC_REPLICAS: 2
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "false"
+    volumes:
+      - kafka_2_data:/bitnami/kafka
+    networks:
+      - eduzim-network
+
+  # kafka-ui — admin web console (INFRA-005 sub-item).
+  # http://localhost:8090 → cluster + topic overview, lag dashboard.
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    container_name: eduzim-kafka-ui
+    restart: always
+    environment:
+      KAFKA_CLUSTERS_0_NAME: eduzim-prod
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+    ports:
+      - "8090:8080"
+    depends_on:
+      - kafka-0
+      - kafka-1
+      - kafka-2
+    networks:
+      - eduzim-network
+
+  # ════════════════════════════════════════════════════════════════
+  # Redis Sentinel — 1 primary + 1 replica + 3 sentinels
+  # ════════════════════════════════════════════════════════════════
+  # Sentinel quorum = 2 (out of 3). Failover triggers when 2 sentinels
+  # agree the primary is down. Applications use the sentinel discovery
+  # URL: `redis+sentinel://...?master=mymaster`.
+  redis:
+    # Override the single-node redis. Real primary is redis-master below.
+    image: alpine:3.20
+    container_name: eduzim-redis-noop
+    command: ["sh", "-c", "echo 'redis single-node disabled by HA overlay; using redis-master/replica + sentinels' && sleep infinity"]
+    depends_on: []
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 30s
+
+  redis-master:
+    image: bitnami/redis:7.2
+    container_name: eduzim-redis-master
+    restart: always
+    environment:
+      REDIS_REPLICATION_MODE: master
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    volumes:
+      - redis_master_data:/bitnami/redis/data
+    networks:
+      - eduzim-network
+
+  redis-replica:
+    image: bitnami/redis:7.2
+    container_name: eduzim-redis-replica
+    restart: always
+    environment:
+      REDIS_REPLICATION_MODE: slave
+      REDIS_MASTER_HOST: redis-master
+      REDIS_MASTER_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    depends_on:
+      - redis-master
+    networks:
+      - eduzim-network
+
+  redis-sentinel-0: &sentinel
+    image: bitnami/redis-sentinel:7.2
+    container_name: eduzim-redis-sentinel-0
+    restart: always
+    environment:
+      REDIS_MASTER_HOST: redis-master
+      REDIS_MASTER_PORT_NUMBER: 6379
+      REDIS_MASTER_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_MASTER_SET: mymaster
+      REDIS_SENTINEL_QUORUM: "2"
+      REDIS_SENTINEL_DOWN_AFTER_MILLISECONDS: "5000"
+      REDIS_SENTINEL_FAILOVER_TIMEOUT: "10000"
+    depends_on:
+      - redis-master
+      - redis-replica
+    networks:
+      - eduzim-network
+
+  redis-sentinel-1:
+    <<: *sentinel
+    container_name: eduzim-redis-sentinel-1
+
+  redis-sentinel-2:
+    <<: *sentinel
+    container_name: eduzim-redis-sentinel-2
+
+  # ════════════════════════════════════════════════════════════════
+  # Application service env overrides — point at the new HA endpoints
+  # ════════════════════════════════════════════════════════════════
+  # Each service's KAFKA_BOOTSTRAP_SERVERS gets the 3-broker list, and
+  # REDIS_URL (for those that use Redis) gets the sentinel-discovery URL.
+  # DATABASE_URL stays at pgbouncer:6432 — pgbouncer's `DB_HOST` env is
+  # overridden above to point at pgpool.
+  api-gateway:
+    environment:
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      IDENTITY_SERVICE_URL: http://identity:8000
+      ACADEMICS_SERVICE_URL: http://academics:8000
+      FINANCE_SERVICE_URL: http://finance:8000
+      COMMUNICATIONS_SERVICE_URL: http://communications:8000
+      # Sentinel-discovery Redis URL. Each library reads it via
+      # `redis.sentinel.Sentinel([...])`. The eduzim_shared client
+      # auto-detects `redis+sentinel://` and switches.
+      REDIS_URL: "redis+sentinel://:${REDIS_PASSWORD}@redis-sentinel-0:26379,redis-sentinel-1:26379,redis-sentinel-2:26379/3?master=mymaster"
+      REDIS_ENABLED: "true"
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://admin.eduzim.co.zw,https://teacher.eduzim.co.zw,https://parent.eduzim.co.zw}
+      ENFORCE_HTTPS: "true"
+
+  identity:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/auth_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      KAFKA_ENABLED: "true"
+      REDIS_URL: "redis+sentinel://:${REDIS_PASSWORD}@redis-sentinel-0:26379,redis-sentinel-1:26379,redis-sentinel-2:26379/0?master=mymaster"
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      FRONTEND_URL: ${FRONTEND_URL:-https://admin.eduzim.co.zw}
+
+  academics:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/academics_db
+      REPORTING_DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/reporting_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      KAFKA_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://identity:8000
+      FINANCE_SERVICE_URL: http://finance:8000
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+
+  finance:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/fees_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      PAYNOW_INTEGRATION_ID: ${PAYNOW_INTEGRATION_ID}
+      PAYNOW_INTEGRATION_KEY: ${PAYNOW_INTEGRATION_KEY}
+      PAYNOW_RESULT_URL: ${PAYNOW_RESULT_URL:-https://api.eduzim.co.zw/api/v1/fees/payments/webhook/paynow}
+
+  communications:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/comms_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+
+  reporting-service:
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/reporting_db
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      KAFKA_BOOTSTRAP_SERVERS: kafka-0:9092,kafka-1:9092,kafka-2:9092
+      KAFKA_ENABLED: "true"
+
+volumes:
+  postgres_pg0_data:
+  postgres_pg1_data:
+  kafka_0_data:
+  kafka_1_data:
+  kafka_2_data:
+  redis_master_data:

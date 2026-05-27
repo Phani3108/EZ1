@@ -103,50 +103,73 @@ def check_rbac(user_payload: dict, method: str, path: str) -> tuple:
 # ───────────── 4. Tenant Enforcement ─────────────
 
 def extract_tenant(user_payload: dict) -> dict:
-    """Extract tenant context from JWT. NEVER from request params."""
+    """Extract tenant context from JWT. NEVER from request params.
+
+    PH3 / BUG-007: the returned dict gains `roles` (list) and
+    `permissions` (list) — downstream services now read identity entirely
+    from gateway-injected headers (eduzim_shared.auth.ActorContext), so
+    they need the full role + permission set, not just a single role
+    string.
+
+    `role` is kept for back-compat with the existing X-User-Role header.
+    """
     if not user_payload:
         return {}
+    # JWTs may carry either `roles` (PH3 canonical, list of strings) or
+    # the legacy `role` (single string). Normalise to a list so the
+    # gateway forwards a consistent X-User-Roles header.
+    roles_field = user_payload.get("roles")
+    if isinstance(roles_field, list):
+        roles = [str(r) for r in roles_field if r]
+    elif user_payload.get("role"):
+        roles = [str(user_payload["role"])]
+    else:
+        roles = []
+
+    perms_field = user_payload.get("permissions") or []
+    if isinstance(perms_field, list):
+        permissions = [str(p) for p in perms_field if p]
+    else:
+        permissions = []
+
     return {
         "school_id": user_payload.get("school_id"),
         "user_id": user_payload.get("sub"),
-        "role": user_payload.get("role"),
+        "role": user_payload.get("role") or (roles[0] if roles else None),
+        "roles": roles,
+        "permissions": permissions,
     }
 
 
 # ───────────── 5. Rate Limiter ─────────────
+#
+# BUG-006 (Phase 1) — Redis-backed token bucket. The previous implementation
+# kept an in-memory dict as a fallback when no Redis client was supplied; that
+# state was lost on every gateway restart, so a process bounce opened a
+# wide-open brute-force window for the duration of the next request burst.
+# This implementation requires Redis. Tests pass a FakeRedis instance with
+# the same `pipeline().incr().expire().execute()` shape we actually use.
 
 class RateLimiter:
-    """Token bucket rate limiter backed by Redis (or in-memory for testing)."""
+    """Token bucket rate limiter backed by Redis.
 
-    def __init__(self, redis_client=None):
+    Construction REQUIRES a redis_client (or a compatible fake). Callers must
+    arrange for a Redis client to exist before constructing — the gateway
+    main.py wires this from ``settings.REDIS_URL`` when ``REDIS_ENABLED`` is
+    true. Tests inject a FakeRedis. There is no in-memory fallback.
+    """
+
+    def __init__(self, redis_client):
+        if redis_client is None:
+            raise ValueError(
+                "RateLimiter requires a redis_client (BUG-006: in-memory "
+                "fallback removed). Pass a real Redis client or a test fake "
+                "supporting .pipeline().incr().expire().execute()."
+            )
         self.redis = redis_client
-        self._memory_store: dict = {}  # fallback for no-Redis
 
     def check(self, key: str, limit: int, window: int) -> tuple:
         """Returns (allowed: bool, remaining: int, reset_at: int)."""
-        if self.redis:
-            return self._check_redis(key, limit, window)
-        return self._check_memory(key, limit, window)
-
-    def _check_memory(self, key: str, limit: int, window: int) -> tuple:
-        now = int(time.time())
-        window_start = now - (now % window)
-        bucket_key = f"{key}:{window_start}"
-
-        if bucket_key not in self._memory_store:
-            # Clean old keys
-            self._memory_store = {k: v for k, v in self._memory_store.items()
-                                   if not k.startswith(key) or k == bucket_key}
-            self._memory_store[bucket_key] = 0
-
-        self._memory_store[bucket_key] += 1
-        count = self._memory_store[bucket_key]
-        remaining = max(0, limit - count)
-        reset_at = window_start + window
-
-        return count <= limit, remaining, reset_at
-
-    def _check_redis(self, key: str, limit: int, window: int) -> tuple:
         now = int(time.time())
         window_start = now - (now % window)
         bucket_key = f"rl:{key}:{window_start}"
@@ -159,29 +182,57 @@ class RateLimiter:
         count = results[0]
         remaining = max(0, limit - count)
         reset_at = window_start + window
-
         return count <= limit, remaining, reset_at
 
 
-def get_rate_limit_key(path: str, user_payload: dict, body: dict = None) -> tuple:
-    """Determine rate limit key and limit.
-    Returns (key, limit, window)."""
-    school_id = user_payload.get("school_id", "unknown") if user_payload else "anon"
-    user_id = user_payload.get("sub", "unknown") if user_payload else "anon"
+def get_rate_limit_key(path: str, user_payload: dict, body: dict = None,
+                       ip: str = None) -> tuple:
+    """Determine the rate-limit key for this request.
 
-    # Login: strict rate limit per IP (brute-force protection)
-    if "/auth/login" in path or "/auth/forgot-password" in path:
-        # Use school_id:anon since we don't have user yet
-        return f"login:{school_id}:{user_id}", settings.LOGIN_RATE_LIMIT, settings.RATE_LIMIT_WINDOW
+    Composite strategy (per the Phase-1 decision):
+      * Unauthenticated `/auth/login`, `/auth/forgot-password`, `/auth/refresh`
+        → keyed by IP (`login:<ip>`). Prevents account-discovery + brute-force
+        from a single source. Limit: LOGIN_RATE_LIMIT.
+      * Authenticated attendance sync (`/attendance/sync`) → keyed by
+        `school_id:device_id` (or `school_id:user_id` if no device). Limit:
+        SYNC_RATE_LIMIT.
+      * Other authenticated routes → keyed by `school_id:user_id`.
+      * Other unauthenticated routes → keyed by IP (`anon:<ip>`). A school
+        behind one NAT shares the bucket, which is OK for genuinely
+        unauthenticated traffic (almost none after Phase 1).
 
-    # Attendance sync: rate limit per device
+    Returns (key, limit, window_seconds).
+    """
+    school_id = user_payload.get("school_id", "unknown") if user_payload else None
+    user_id = user_payload.get("sub", "unknown") if user_payload else None
+    ip_key = ip or "unknown-ip"
+
+    # Login / refresh / forgot-password — keyed by IP (brute-force defence).
+    # Stricter limit per LOGIN_RATE_LIMIT.
+    if ("/auth/login" in path
+            or "/auth/forgot-password" in path
+            or "/auth/refresh" in path):
+        return f"login:{ip_key}", settings.LOGIN_RATE_LIMIT, settings.RATE_LIMIT_WINDOW
+
+    # Attendance sync — per-device (or per-user when device missing).
     if "/attendance/sync" in path and body:
-        device_id = body.get("device_id", user_id)
-        return (f"{school_id}:{device_id}", settings.SYNC_RATE_LIMIT,
-                settings.RATE_LIMIT_WINDOW)
+        device_id = body.get("device_id") or user_id or "no-device"
+        return (
+            f"{school_id or 'anon'}:{device_id}",
+            settings.SYNC_RATE_LIMIT,
+            settings.RATE_LIMIT_WINDOW,
+        )
 
-    # Default: per user
-    return f"{school_id}:{user_id}", settings.DEFAULT_RATE_LIMIT, settings.RATE_LIMIT_WINDOW
+    # Authenticated default — per (school, user).
+    if user_payload:
+        return (
+            f"{school_id}:{user_id}",
+            settings.DEFAULT_RATE_LIMIT,
+            settings.RATE_LIMIT_WINDOW,
+        )
+
+    # Unauthenticated default — per IP.
+    return f"anon:{ip_key}", settings.DEFAULT_RATE_LIMIT, settings.RATE_LIMIT_WINDOW
 
 
 # ───────────── 6. Error Normalizer ─────────────

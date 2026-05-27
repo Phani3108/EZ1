@@ -11,13 +11,27 @@ version: "3.9"
 services:
   # ─── Infrastructure ───
   postgres:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 1G
+
     image: postgres:16-alpine
     container_name: eduzim-postgres
     restart: always
     environment:
       POSTGRES_USER: ${DB_USER:-eduzim}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-      POSTGRES_MULTIPLE_DATABASES: auth_db,school_db,student_db,attendance_db,fees_db,comms_db,reporting_db,assessment_db
+      # PH2-12: school_db / student_db / attendance_db / assessment_db
+      # dropped — the corresponding services are gone; academics_db owns
+      # those tables. Keep them in any rollback runbook though, in case
+      # you need to spin up an old container.
+      POSTGRES_MULTIPLE_DATABASES: auth_db,fees_db,comms_db,reporting_db,academics_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./scripts/init-databases.sh:/docker-entrypoint-initdb.d/init-databases.sh
@@ -30,7 +44,83 @@ services:
     networks:
       - eduzim-network
 
+  # --- PgBouncer (INFRA-002 / Phase 4) ---
+  # Transaction-mode pooler. Every app service points DATABASE_URL at
+  # pgbouncer:6432 so the per-service pool_size=20 doesn't translate
+  # into 100+ open Postgres backends at scale. See docker-compose.yml
+  # for the rationale + non-prod equivalent.
+  pgbouncer:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256M
+        reservations:
+          cpus: "0.1"
+          memory: 64M
+    image: edoburu/pgbouncer:v1.23.1
+    container_name: eduzim-pgbouncer
+    restart: always
+    environment:
+      DB_USER: ${DB_USER:-eduzim}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: "*"
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 1000
+      DEFAULT_POOL_SIZE: 25
+      RESERVE_POOL_SIZE: 5
+      RESERVE_POOL_TIMEOUT: 3
+      SERVER_RESET_QUERY: "DISCARD ALL"
+      AUTH_TYPE: md5
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
+  # --- One-shot schema migrations (BUG-008 / Phase 4) ---
+  # Runs once on stack start, exits when alembic upgrade head has
+  # completed for every service. App services depend on completion.
+  # Connects to Postgres DIRECTLY (not via pgbouncer) — DDL doesn't
+  # compose with transaction-mode pooling.
+  migrations:
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-migrations:${IMAGE_TAG:-latest}
+    container_name: eduzim-migrations
+    restart: "no"
+    environment:
+      DB_USER: ${DB_USER:-eduzim}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - eduzim-network
+
   redis:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
     image: redis:7-alpine
     container_name: eduzim-redis
     restart: always
@@ -46,6 +136,16 @@ services:
       - eduzim-network
 
   kafka:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "1.5"
+          memory: 2G
+        reservations:
+          cpus: "0.25"
+          memory: 512M
+
     image: confluentinc/cp-kafka:7.6.0
     container_name: eduzim-kafka
     restart: always
@@ -61,6 +161,16 @@ services:
       - eduzim-network
 
   zookeeper:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
     image: confluentinc/cp-zookeeper:7.6.0
     container_name: eduzim-zookeeper
     restart: always
@@ -71,19 +181,33 @@ services:
 
   # ─── Application Services ───
   api-gateway:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
     image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-api-gateway:${IMAGE_TAG:-latest}
     container_name: eduzim-gateway
     restart: always
     environment:
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      AUTH_SERVICE_URL: http://auth-service:8000
-      SCHOOL_SERVICE_URL: http://school-service:8000
-      STUDENT_SERVICE_URL: http://student-service:8000
-      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
-      FEES_SERVICE_URL: http://fees-service:8000
-      COMMUNICATION_SERVICE_URL: http://communication-service:8000
-      REPORTING_SERVICE_URL: http://reporting-service:8000
-      ASSESSMENT_SERVICE_URL: http://assessment-service:8000
+      # PH3 / BUG-007: shared secret the gateway sends as X-Gateway-Token
+      # on every downstream request; each downstream service rejects 401
+      # if its INTERNAL_SERVICE_TOKEN doesn't match.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
+      # PH2-12: post-cleanup canonical service URL set. Deprecated aliases
+      # (AUTH/SCHOOL/STUDENT/ATTENDANCE/ASSESSMENT/FEES/COMMUNICATION/
+      # REPORTING_SERVICE_URL) dropped — the four remaining services are
+      # the actual SOA boundary now.
+      IDENTITY_SERVICE_URL: http://identity:8000
+      ACADEMICS_SERVICE_URL: http://academics:8000
+      FINANCE_SERVICE_URL: http://finance:8000
+      COMMUNICATIONS_SERVICE_URL: http://communications:8000
       REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/3
       REDIS_ENABLED: "true"
       CORS_ORIGINS: ${CORS_ORIGINS:-https://admin.eduzim.co.zw,https://teacher.eduzim.co.zw,https://parent.eduzim.co.zw}
@@ -91,17 +215,30 @@ services:
     ports:
       - "${GATEWAY_PORT:-8000}:8000"
     depends_on:
-      - auth-service
+      - identity
+      - academics
+      - finance
+      - communications
       - redis
     networks:
       - eduzim-network
 
-  auth-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-auth-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-auth
+  identity:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-identity:${IMAGE_TAG:-latest}
+    container_name: eduzim-identity
     restart: always
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/auth_db
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/auth_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       KAFKA_ENABLED: "true"
@@ -111,137 +248,144 @@ services:
       SMTP_PASSWORD: ${SMTP_PASSWORD}
       FRONTEND_URL: ${FRONTEND_URL:-https://admin.eduzim.co.zw}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - identity
 
-  school-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-school-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-school
+  # PH2-12: the four pre-consolidation services (school-service, student-service,
+  # attendance-service, assessment-service) and notification-worker are
+  # deleted. academics owns those domains; communications absorbed the worker.
+  academics:
+    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-academics:${IMAGE_TAG:-latest}
+    container_name: eduzim-academics
     restart: always
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/school_db
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/academics_db
+      # PH2-11: second connection to the projection DB (reporting-service
+      # consumer is the only writer; we open it read-only).
+      REPORTING_DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/reporting_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # PH2-12: academics is now the sole publisher of school/student/
+      # attendance/assessment events; the burn-in dual-publisher rationale
+      # is gone with the retired containers, so KAFKA_ENABLED flips on.
+      KAFKA_ENABLED: "true"
+      IDENTITY_SERVICE_URL: http://identity:8000
+      # PH2-11: dropout still calls finance for invoices.
+      FINANCE_SERVICE_URL: http://finance:8000
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     networks:
       - eduzim-network
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
 
-  student-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-student-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-student
+  # PH2-3: renamed from fees-service → finance.
+  finance:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-finance:${IMAGE_TAG:-latest}
+    container_name: eduzim-finance
     restart: always
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/student_db
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/fees_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  attendance-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-attendance-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-attendance
-    restart: always
-    environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/attendance_db
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      REDIS_URL: redis://:${REDIS_PASSWORD}@redis:6379/1
+      # PH3 / BUG-007: required for gateway-headers-only auth.
       INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  fees-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-fees-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-fees
-    restart: always
-    environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/fees_db
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
       PAYNOW_INTEGRATION_ID: ${PAYNOW_INTEGRATION_ID}
       PAYNOW_INTEGRATION_KEY: ${PAYNOW_INTEGRATION_KEY}
       PAYNOW_RESULT_URL: ${PAYNOW_RESULT_URL:-https://api.eduzim.co.zw/api/v1/fees/payments/webhook/paynow}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - finance
 
-  communication-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-communication-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-comms
+  communications:
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
+    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-communications:${IMAGE_TAG:-latest}
+    container_name: eduzim-communications
     restart: always
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/comms_db
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/comms_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # PH3 / BUG-007: required for gateway-headers-only auth.
+      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
     depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     networks:
-      - eduzim-network
+      eduzim-network:
+        aliases:
+          - communications
 
   reporting-service:
+    # PH2-11: pure Kafka consumer. No HTTP surface, no exposed port. The
+    # /api/v1/reports/* endpoints moved to the academics service which
+    # opens a read-only connection to this same reporting_db.
+    # INFRA-021 (Phase 5): baseline resource caps; tune from real load.
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
+        reservations:
+          cpus: "0.1"
+          memory: 128M
+
     image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-reporting-service:${IMAGE_TAG:-latest}
     container_name: eduzim-reporting
     restart: always
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/reporting_db
+      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@pgbouncer:6432/reporting_db
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      STUDENT_SERVICE_URL: http://student-service:8000
-      ATTENDANCE_SERVICE_URL: http://attendance-service:8000
-      FEES_SERVICE_URL: http://fees-service:8000
-      ASSESSMENT_SERVICE_URL: http://assessment-service:8000
+      KAFKA_ENABLED: "true"
     depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  assessment-service:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-assessment-service:${IMAGE_TAG:-latest}
-    container_name: eduzim-assessment
-    restart: always
-    environment:
-      DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/assessment_db
-      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      INTERNAL_SERVICE_TOKEN: ${INTERNAL_SERVICE_TOKEN}
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - eduzim-network
-
-  notification-worker:
-    image: ${IMAGE_REGISTRY:-ghcr.io/phani3108}/eduzim-notification-worker:${IMAGE_TAG:-latest}
-    container_name: eduzim-notifier
-    restart: always
-    environment:
-      COMMS_DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/comms_db
-      AUTH_DATABASE_URL: postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@postgres:5432/auth_db
-      AFRICASTALKING_API_KEY: ${AFRICASTALKING_API_KEY}
-      AFRICASTALKING_USERNAME: ${AFRICASTALKING_USERNAME:-sandbox}
-      SMTP_HOST: ${SMTP_HOST}
-      SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USER: ${SMTP_USER}
-      SMTP_PASSWORD: ${SMTP_PASSWORD}
-      FCM_SERVER_KEY: ${FCM_SERVER_KEY}
-    depends_on:
-      postgres:
-        condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
+      pgbouncer:
+        condition: service_started
     networks:
       - eduzim-network
 

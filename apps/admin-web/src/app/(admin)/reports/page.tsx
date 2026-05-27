@@ -14,6 +14,7 @@ import {
   Card, CardContent, CardHeader, CardTitle,
   Badge, Select,
   Table, TableHeader, TableBody, TableRow, TableHead, TableCell,
+  LineChart, BarChart,
 } from "@eduzim/ui";
 import { RouteGuard } from "@eduzim/auth";
 import type { DashboardData, AttendanceTrendPoint, FinancialSummaryData, AcademicYear } from "@eduzim/api-client";
@@ -159,33 +160,71 @@ export default function ReportsPage() {
                 <p className="text-xs text-muted-foreground mt-1">{t("noDataDescription")}</p>
               </div>
             ) : (
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("date")}</TableHead>
-                      <TableHead className="text-right">{t("present")}</TableHead>
-                      <TableHead className="text-right">{t("absent")}</TableHead>
-                      <TableHead className="text-right">{t("late")}</TableHead>
-                      <TableHead className="text-right">{t("rate")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(trend as AttendanceTrendPoint[]).map((d) => (
-                      <TableRow key={d.date}>
-                        <TableCell className="font-mono text-sm">{d.date}</TableCell>
-                        <TableCell className="text-right font-mono text-green-600">{d.present}</TableCell>
-                        <TableCell className="text-right font-mono text-red-600">{d.absent}</TableCell>
-                        <TableCell className="text-right font-mono text-amber-600">{d.late}</TableCell>
-                        <TableCell className="text-right">
-                          <Badge variant={d.rate >= 80 ? "default" : d.rate >= 60 ? "secondary" : "destructive"}>
-                            {fmtPct(d.rate)}
-                          </Badge>
-                        </TableCell>
+              <div className="space-y-4">
+                {/* Phase 10 — Q-001a: real chart replaces the HTML-as-trend
+                    table. The table is kept below for accessibility / copy
+                    semantics (a screen-reader user can still consume the
+                    underlying numbers). */}
+                <BarChart
+                  data={(trend as AttendanceTrendPoint[]).map((d) => ({
+                    date: d.date.slice(5),  // MM-DD for axis brevity
+                    Present: d.present,
+                    Absent: d.absent,
+                    Late: d.late,
+                  }))}
+                  xKey="date"
+                  series={[
+                    { key: "Present", label: t("present"), color: "#008751" },
+                    { key: "Absent",  label: t("absent"),  color: "#D62828" },
+                    { key: "Late",    label: t("late"),    color: "#F5B800" },
+                  ]}
+                  stacked
+                  height={220}
+                  ariaLabel={t("trend")}
+                />
+                <LineChart
+                  data={(trend as AttendanceTrendPoint[]).map((d) => ({
+                    date: d.date.slice(5),
+                    Rate: Number(d.rate.toFixed(1)),
+                  }))}
+                  xKey="date"
+                  series={[
+                    { key: "Rate", label: t("rate"), color: "#5B2D8A" },
+                  ]}
+                  height={140}
+                  ariaLabel={t("rate")}
+                />
+                <details className="rounded-lg border">
+                  <summary className="cursor-pointer px-4 py-2 text-sm font-medium">
+                    {t("date")} · {t("rate")}
+                  </summary>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("date")}</TableHead>
+                        <TableHead className="text-right">{t("present")}</TableHead>
+                        <TableHead className="text-right">{t("absent")}</TableHead>
+                        <TableHead className="text-right">{t("late")}</TableHead>
+                        <TableHead className="text-right">{t("rate")}</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {(trend as AttendanceTrendPoint[]).map((d) => (
+                        <TableRow key={d.date}>
+                          <TableCell className="font-mono text-sm">{d.date}</TableCell>
+                          <TableCell className="text-right font-mono text-green-600">{d.present}</TableCell>
+                          <TableCell className="text-right font-mono text-red-600">{d.absent}</TableCell>
+                          <TableCell className="text-right font-mono text-amber-600">{d.late}</TableCell>
+                          <TableCell className="text-right">
+                            <Badge variant={d.rate >= 80 ? "default" : d.rate >= 60 ? "secondary" : "destructive"}>
+                              {fmtPct(d.rate)}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </details>
               </div>
             )}
           </CardContent>
@@ -210,46 +249,71 @@ export default function ReportsPage() {
                 <p className="text-xs text-muted-foreground mt-1">{t("noDataDescription")}</p>
               </div>
             ) : (
-              <div className="rounded-lg border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>{t("selectAcademicYear")}</TableHead>
-                      <TableHead className="text-right">{t("totalInvoiced")}</TableHead>
-                      <TableHead className="text-right">{t("totalPaid")}</TableHead>
-                      <TableHead className="text-right">{t("totalOutstanding")}</TableHead>
-                      <TableHead className="text-right">{t("collectionRate")}</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {(financial as FinancialSummaryData[]).map((f) => {
-                      const colRate = f.total_invoiced > 0
-                        ? (f.total_paid / f.total_invoiced) * 100
-                        : 0;
-                      return (
-                        <TableRow key={f.academic_year_id}>
-                          <TableCell className="font-mono text-xs">
-                            {f.academic_year_id.slice(0, 8)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono">
-                            {fmtCurrency(f.total_invoiced)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-green-600">
-                            {fmtCurrency(f.total_paid)}
-                          </TableCell>
-                          <TableCell className="text-right font-mono text-red-600 font-medium">
-                            {fmtCurrency(f.total_outstanding)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant={colRate >= 80 ? "default" : colRate >= 50 ? "secondary" : "destructive"}>
-                              {fmtPct(colRate)}
-                            </Badge>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <div className="space-y-4">
+                {/* Phase 10 — PH10-2: replace the financial-summary
+                    table-as-chart with a stacked BarChart of
+                    Paid vs Outstanding per academic year. The table
+                    stays below as an accessible <details> block (same
+                    pattern as the attendance section). */}
+                <BarChart
+                  data={(financial as FinancialSummaryData[]).map((f) => ({
+                    year: f.academic_year_id.slice(0, 8),
+                    Paid: f.total_paid,
+                    Outstanding: f.total_outstanding,
+                  }))}
+                  xKey="year"
+                  series={[
+                    { key: "Paid",        label: t("totalPaid"),        color: "#008751" },
+                    { key: "Outstanding", label: t("totalOutstanding"), color: "#D62828" },
+                  ]}
+                  stacked
+                  height={220}
+                  ariaLabel={t("financialSummary")}
+                />
+                <details className="rounded-lg border">
+                  <summary className="cursor-pointer px-4 py-2 text-sm font-medium">
+                    {t("selectAcademicYear")} · {t("collectionRate")}
+                  </summary>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{t("selectAcademicYear")}</TableHead>
+                        <TableHead className="text-right">{t("totalInvoiced")}</TableHead>
+                        <TableHead className="text-right">{t("totalPaid")}</TableHead>
+                        <TableHead className="text-right">{t("totalOutstanding")}</TableHead>
+                        <TableHead className="text-right">{t("collectionRate")}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {(financial as FinancialSummaryData[]).map((f) => {
+                        const colRate = f.total_invoiced > 0
+                          ? (f.total_paid / f.total_invoiced) * 100
+                          : 0;
+                        return (
+                          <TableRow key={f.academic_year_id}>
+                            <TableCell className="font-mono text-xs">
+                              {f.academic_year_id.slice(0, 8)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {fmtCurrency(f.total_invoiced)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-green-600">
+                              {fmtCurrency(f.total_paid)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-red-600 font-medium">
+                              {fmtCurrency(f.total_outstanding)}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Badge variant={colRate >= 80 ? "default" : colRate >= 50 ? "secondary" : "destructive"}>
+                                {fmtPct(colRate)}
+                              </Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </details>
               </div>
             )}
           </CardContent>

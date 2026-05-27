@@ -1,6 +1,26 @@
 #!/usr/bin/env python3
 """
-EduZim Scale Simulation — 500 Schools × 100 Students
+DEPRECATED — replaced by scripts/load/ at Phase 7 / 2026-05-26.
+
+The original Phase-1 audit (see task.md §4) called this script out:
+"550 mock HTTP requests against localhost — not a real test." The
+'500-school validated' claim it implied was marketing copy, not a
+verified scale benchmark. Phase 7 replaces it with three real
+deliverables:
+
+    scripts/load/seed_realistic.py   — provisions 500 schools × 100
+                                       students via the actual gateway API
+    scripts/load/load_24h.py         — sustained 24-hour realistic
+                                       traffic with school-day patterns
+    scripts/load/report_generator.py — generates docs/performance-report.md
+                                       from the run output
+
+Plus PH7-2 chaos profile (docker-compose.chaos.yml + toxiproxy).
+
+This file is kept for one minor release with a deprecation warning so
+anything still pointing at it gets a loud message. PH8 deletes it.
+
+Original docstring preserved below for reference:
 ======================================================
 Simulates realistic concurrent load against the EduZim API gateway
 to verify the system can handle Zimbabwe MoPSE-scale traffic.
@@ -472,4 +492,27 @@ async def main():
 
 
 if __name__ == "__main__":
+    import sys
+    print(
+        "\n"
+        "  ┌─────────────────────────────────────────────────────────────────┐\n"
+        "  │  DEPRECATED — scripts/scale_test.py is the audit-flagged       │\n"
+        "  │  'mock HTTP against localhost' script. Phase 7 replaced it.   │\n"
+        "  │                                                                 │\n"
+        "  │  Use instead:                                                  │\n"
+        "  │    python scripts/load/seed_realistic.py --base-url <url>      │\n"
+        "  │    python scripts/load/load_24h.py --base-url <url> \\           │\n"
+        "  │        --seed-artifacts scripts/load/seed_artifacts.json       │\n"
+        "  │    python scripts/load/report_generator.py \\                   │\n"
+        "  │        --summary scripts/load/load_24h_summary.json \\          │\n"
+        "  │        --csv scripts/load/load_24h.csv \\                       │\n"
+        "  │        --out docs/performance-report.md                        │\n"
+        "  │                                                                 │\n"
+        "  │  This file is kept for one minor release; PH8 deletes it.     │\n"
+        "  └─────────────────────────────────────────────────────────────────┘\n",
+        file=sys.stderr,
+    )
+    sys.exit(2)
+    # Original behaviour intentionally unreachable. asyncio.run(main()) preserved
+    # below for git-history visibility only.
     asyncio.run(main())

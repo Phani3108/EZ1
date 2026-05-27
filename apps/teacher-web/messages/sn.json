@@ -22,7 +22,12 @@
   "nav": {
     "today": "Nhasi",
     "myClasses": "Makirasi Angu",
-    "announcements": "Zvidzidzo"
+    "announcements": "Zvidzidzo",
+    "messages": "Mameseji",
+    "gradebook": "Bhuku reMamarks",
+    "plan": "Ronga",
+    "studentLife": "Upenyu hweMudzidzi",
+    "professional": "Hunyanzvi"
   },
   "login": {
     "title": "EduZim Mudzidzisi Portal",
@@ -73,6 +78,12 @@
     "saved": "Kuvapo kwasevhwa nebudiriro!",
     "saveFailed": "Kukundikana kusevha kuvapo. Edzai zvakare.",
     "markAll": "Nyoresa Vose",
+    "markAllPresentN": "Nyoresa vose {n} sevaripo",
+    "markAllAbsentN": "Nyoresa vose {n} sevasipo",
+    "undoBulkN": "Dzosera ({n} zvachinjwa)",
+    "periodLabel": "Nguva",
+    "periodDay": "Zuva rose (homeroom)",
+    "periodN": "Nguva {n}",
     "noStudents": "Hapana vadzidzi vekupi mark",
     "classDetail": "Ruzivo rweKirasi",
     "noAnnouncements": "Hapana zvidzidzo zvekirasi iri",
@@ -90,6 +101,7 @@
     "bodyPlaceholder": "Nyorai chiziviso chenyu...",
     "targetClass": "Kirasi Rinogamuchira",
     "allClasses": "Makirasi Ese Angu",
+    "audienceHintTeacherClasses": "Izvi zvichatumirwa kuvabereki vevadzidzi vose vari mumakirasi enyu.",
     "sendFailed": "Kukundikana kutumira chiziviso. Edzai zvakare."
   },
   "students": {
@@ -123,7 +135,149 @@
     "ministry": "Inoenderana neHurumende yeDzidzo",
     "vision2030": "Kutsigira Zimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Kodzero dzose dzakachengetedzwa.",
-    "motto": "Kubatana, Rusununguko, Basa"
+    "motto": "Kubatana, Rusununguko, Basa",
+    "privacyPolicy": "Mutemo weZvakavanzika",
+    "retentionPolicy": "Kuchengetedzwa kweRuzivo",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
+  },
+  "offline": {
+    "offline": "Hapana network",
+    "showingCached": "Ruzivo rwakachengetedzwa",
+    "offlineShowingCached": "Hapana network — ruzivo rwakachengetedzwa"
+  },
+  "plan": {
+    "title": "Ronga",
+    "description": "Nguva, mapuranisi ezvidzidzo, formative assessments, neexam seat plans.",
+    "loading": "Kurodha…",
+    "cancel": "Kanzura",
+    "periods": {
+      "title": "Sheduru yeNguva",
+      "empty": "Hapana manguva akagadziriswa. Admin yechikoro ndiye anozvigadzirisa."
+    },
+    "lessonPlans": {
+      "title": "Mapuranisi ezvidzidzo",
+      "create": "Puranisi itsva yedzidzo",
+      "save": "Sevha",
+      "templatesOnly": "Matemplate chete",
+      "templateBadge": "Template",
+      "empty": "Hapana mapuranisi.",
+      "titlePlaceholder": "Zita rechidzidzo",
+      "objectivesPlaceholder": "Zvinangwa (zvinosarudzika)",
+      "makeTemplate": "Sarudza kuti iri template (hapana kirasi)"
+    },
+    "formatives": {
+      "title": "Formative assessments",
+      "create": "Mubvunzo wekukurumidza",
+      "save": "Sevha",
+      "empty": "Hapana formative dzakanyorwa.",
+      "titlePlaceholder": "Zita rinoonekwa nevadzidzi",
+      "promptPlaceholder": "Mubvunzo kana ndaure",
+      "kindPoll": "Vhotera",
+      "kindExitTicket": "Tikiti rekubuda",
+      "kindQuiz": "Quiz",
+      "responses": "{n} mhinduro"
+    },
+    "seatPlans": {
+      "title": "Mapuranisi ezvigaro zveexam",
+      "hint": "Hofisi yechikoro ndiyo inogadzirisa mapuranisi ezvigaro. Kumbira admin akupe printout pazuva."
+    }
+  },
+  "professional": {
+    "title": "Kusimudzira Hunyanzvi",
+    "description": "Rekodhi yeCPD nemureflect-zvako wezvitatu.",
+    "loading": "Kurodha…",
+    "cancel": "Kanzura",
+    "cpd": {
+      "title": "Rekodhi yeCPD",
+      "add": "Wedzera rekodhi yeCPD",
+      "save": "Sevha",
+      "empty": "Hapana rekodhi dzeCPD.",
+      "totalHours": "Maawa ese: {hours}",
+      "titlePlaceholder": "Zita (semuenzaniso 'Active learning workshop')",
+      "providerPlaceholder": "Anopa (zvinosarudzika)",
+      "hoursPlaceholder": "Maawa"
+    },
+    "selfEval": {
+      "title": "Ongorora-iwe",
+      "save": "Tumira",
+      "savedAt": "Yasevhwa {ts}",
+      "termIdPlaceholder": "ID yeTema",
+      "strengths": "Simba muchitatu chino",
+      "growthAreas": "Nzvimbo dzekuvandudza",
+      "planForNext": "Hurongwa hwetema rinotevera",
+      "overallReflection": "Kufungisisa zvese"
+    }
+  },
+  "studentLife": {
+    "title": "Upenyu hweMudzidzi",
+    "description": "Zviitiko, kutsiviwa kwemudzidzisi, nemabasa epamba.",
+    "loading": "Kurodha…",
+    "cancel": "Kanzura",
+    "incidents": {
+      "title": "Zviitiko zvetsika",
+      "create": "Nyora chiitiko",
+      "save": "Sevha",
+      "empty": "Hapana zviitiko zvakanyorwa.",
+      "studentIdPlaceholder": "ID yemudzidzi",
+      "classOptional": "Kirasi (zvinosarudzika)",
+      "severityMinor": "Diki",
+      "severityModerate": "Zvepakati",
+      "severitySerious": "Yakaomarara",
+      "severityCritical": "Inotyisa",
+      "summoryPlaceholder": "Chii chakaitika?",
+      "summaryPlaceholder": "Chii chakaitika? Nyatso huya nemaonero echokwadi.",
+      "resolvedAt": "Yagadziriswa {ts}"
+    },
+    "substitute": {
+      "title": "Kutsiviwa kwemudzidzisi",
+      "hint": "Admin ndivo vanopa nguva yekuti uone makirasi emudzidzisi asipo. Apa uchaona zvekupiwa zvako chete.",
+      "empty": "Hapana zvekutsiva izvozvi.",
+      "covering": "Kutsiva mudzidzisi {teacher}…"
+    },
+    "homework": {
+      "title": "Basa repamba",
+      "assign": "Pa basa repamba",
+      "save": "Pa",
+      "empty": "Hapana basa repamba.",
+      "due": "Inopera",
+      "titlePlaceholder": "Zita rebasa",
+      "descriptionPlaceholder": "Zvinofanira kuitwa nevadzidzi"
+    }
+  },
+  "voiceNotes": {
+    "record": "Rekoda",
+    "stop": "Mira",
+    "upload": "Aploda",
+    "uploading": "Kuaploda…",
+    "notSupported": "Mavhoyizi notes haasi pamushini uno",
+    "error": "Kurekoda kwakundikana",
+    "retry": "Edza zvakare"
+  },
+  "gradebook": {
+    "title": "Bhuku reMamarks",
+    "description": "Mamarks ese ekuongorora kwese muchikamu chimwe.",
+    "noClasses": "Hapana makirasi akapihwa kwauri.",
+    "noAssessments": "Hapana zviongororwa zvakanyorwa pakirasi iri.",
+    "loading": "Kurodha bhuku reMamarks…",
+    "termFilterLabel": "Tema:",
+    "termFilterPlaceholder": "Sefa neid yetema (zvinosarudzika)",
+    "studentColumn": "Mudzidzi",
+    "averageColumn": "Avhareji",
+    "absentShort": "Hap"
+  },
+  "messages": {
+    "title": "Mameseji",
+    "threadsCount": "nhaurirano",
+    "noThreads": "Hapana nhaurirano",
+    "noThreadsHint": "Vabereki vanogona kutanga nhaurirano nemi nezvemwana wavo. Nhaurirano itsva dzichaonekwa pano.",
+    "threadWithParent": "Mubereki · {id}",
+    "noMessagesYet": "Hapana mameseji",
+    "threadDetailTitle": "Nhaurirano",
+    "loading": "Kurodha mameseji…",
+    "composePlaceholder": "Nyora meseji…",
+    "send": "Tumira",
+    "redacted": "[zvakavanzika]"
   },
   "assessments": {
     "title": "Maonero",

@@ -3,7 +3,8 @@ from functools import lru_cache
 
 
 class Settings(BaseSettings):
-    JWT_SECRET_KEY: str = "dev-jwt-secret-change-in-production"
+    # JWT — REQUIRED via env (no in-code default; BUG-003)
+    JWT_SECRET_KEY: str
     JWT_ALGORITHM: str = "HS256"
     SERVICE_NAME: str = "api-gateway"
     APP_NAME: str = "EduZim API Gateway"
@@ -16,15 +17,15 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
     REDIS_ENABLED: bool = False
 
-    # Downstream service URLs
-    AUTH_SERVICE_URL: str = "http://localhost:8001"
-    SCHOOL_SERVICE_URL: str = "http://localhost:8002"
-    STUDENT_SERVICE_URL: str = "http://localhost:8003"
-    ATTENDANCE_SERVICE_URL: str = "http://localhost:8004"
-    FEES_SERVICE_URL: str = "http://localhost:8005"
-    COMMUNICATION_SERVICE_URL: str = "http://localhost:8006"
-    REPORTING_SERVICE_URL: str = "http://localhost:8007"
-    ASSESSMENT_SERVICE_URL: str = "http://localhost:8008"
+    # Downstream service URLs.
+    # PH2-12: post-cleanup canonical set. All deprecated PH2-2/3/4/10/11
+    # aliases (AUTH/SCHOOL/STUDENT/ATTENDANCE/ASSESSMENT/FEES/COMMUNICATION/
+    # REPORTING_SERVICE_URL) have been removed — the SOA boundary is now
+    # exactly four downstream services + identity.
+    IDENTITY_SERVICE_URL: str = "http://localhost:8001"
+    ACADEMICS_SERVICE_URL: str = "http://localhost:8009"
+    FINANCE_SERVICE_URL: str = "http://localhost:8005"
+    COMMUNICATIONS_SERVICE_URL: str = "http://localhost:8006"
 
     # Rate limiting
     DEFAULT_RATE_LIMIT: int = 60       # req/min/user

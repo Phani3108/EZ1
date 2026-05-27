@@ -1,29 +1,23 @@
-"""JWT dependencies for reporting-service."""
-import uuid
-from fastapi import Depends, HTTPException
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
-from app.config import get_settings
+"""Auth dependencies — vestigial at PH2-11/PH3.
 
-settings = get_settings()
-security_scheme = HTTPBearer()
-
-
-async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
-) -> dict:
-    try:
-        payload = jwt.decode(credentials.credentials, settings.JWT_SECRET_KEY,
-                             algorithms=[settings.JWT_ALGORITHM])
-    except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-    if payload.get("type") != "access":
-        raise HTTPException(status_code=401, detail="Access token required")
-    return payload
+The reporting-service container is a Kafka consumer with no HTTP surface
+besides `/health` (which doesn't need auth). This module is kept on disk
+only because legacy code occasionally imports `get_current_user` for
+side-effects; it raises if anyone actually invokes it.
+"""
+from fastapi import HTTPException
 
 
-def get_school_id(current_user: dict = Depends(get_current_user)) -> uuid.UUID:
-    sid = current_user.get("school_id")
-    if not sid:
-        raise HTTPException(status_code=400, detail="school_id missing from token")
-    return uuid.UUID(sid)
+def get_current_user(*_args, **_kwargs):
+    raise HTTPException(
+        status_code=410,
+        detail="reporting-service HTTP auth was removed at PH2-11. "
+               "This consumer container has no authenticated routes.",
+    )
+
+
+def get_school_id(*_args, **_kwargs):
+    raise HTTPException(
+        status_code=410,
+        detail="reporting-service HTTP auth was removed at PH2-11.",
+    )

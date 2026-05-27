@@ -1,0 +1,53 @@
+# Grafana datasource provisioning — Phase 6 expansion.
+#
+# Loaded on Grafana startup. The Loki + Tempo entries become active
+# when the docker-compose.observability.yml overlay is applied
+# (without it, the corresponding containers are absent and the
+# datasource shows a connection error in the UI — harmless).
+#
+# Trace correlation: the `traceID` JSON field in our structured logs
+# is auto-linked to Tempo via the `derivedFields` config on Loki.
+# Click the trace_id in a log line in Grafana → opens the trace.
+
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      httpMethod: POST
+      exemplarTraceIdDestinations:
+        - name: trace_id
+          datasourceUid: tempo
+
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: false
+    jsonData:
+      derivedFields:
+        - datasourceUid: tempo
+          matcherRegex: "trace_id=([a-zA-Z0-9]+)"
+          name: TraceID
+          url: "$${__value.raw}"
+
+  - name: Tempo
+    type: tempo
+    uid: tempo
+    access: proxy
+    url: http://tempo:3200
+    editable: false
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        tags: [service]
+        filterByTraceID: true
+      serviceMap:
+        datasourceUid: prometheus
+      nodeGraph:
+        enabled: true

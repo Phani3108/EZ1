@@ -11,8 +11,8 @@ import { Card, CardContent, CardHeader, CardTitle, Button, Input } from "@eduzim
 import { Megaphone, ChevronRight, Send, Plus, X } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
 import { useSync } from "@/lib/sync-provider";
-import { teacher, comm } from "@/lib/api";
-import type { Announcement, TeacherClass } from "@eduzim/api-client";
+import { comm } from "@/lib/api";
+import type { Announcement } from "@eduzim/api-client";
 
 export default function AnnouncementsPage() {
   const t = useTranslations("announcements");
@@ -100,20 +100,20 @@ function SendAnnouncementForm({
   onSuccess: () => void;
   onCancel: () => void;
 }) {
+  // RULE-4 (Phase 11b): the teacher-side announcement form no longer
+  // shows an audience picker. Every send goes to `TEACHER_CLASSES`,
+  // which the backend resolver expands to "all parents of the
+  // teacher's classes". That is the only audience a teacher should be
+  // able to address — if a teacher needs to reach all-school, that's
+  // an admin-only action via the admin web, not the teacher app.
   const t = useTranslations("announcements");
   const tCommon = useTranslations("common");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
-  const [classId, setClassId] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: classes } = useApiQuery<TeacherClass[]>(
-    () => teacher.getMyClasses(),
-    []
-  );
-
-  const { enqueueOffline, online } = useSync();
+  const { enqueueOffline } = useSync();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,11 +122,12 @@ function SendAnnouncementForm({
     setIsSending(true);
     setError(null);
 
+    // RULE-4: hardcoded audience — no picker.
     const payload = {
       title: title.trim(),
       body: body.trim(),
-      audience_type: classId ? "class" : "all",
-      audience_class_id: classId || null,
+      audience: { type: "TEACHER_CLASSES" },
+      channels: ["IN_APP"],
     };
 
     try {
@@ -152,7 +153,7 @@ function SendAnnouncementForm({
         <CardTitle className="text-base">{t("newAnnouncement")}</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4" data-testid="teacher-announcement-form">
           <div>
             <label className="text-sm font-medium mb-1 block">
               {t("announcementTitle")}
@@ -178,22 +179,14 @@ function SendAnnouncementForm({
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium mb-1 block">
-              {t("targetClass")}
-            </label>
-            <select
-              value={classId}
-              onChange={(e) => setClassId(e.target.value)}
-              className="w-full rounded-md border px-3 py-2 text-sm bg-background"
-            >
-              <option value="">{t("allClasses")}</option>
-              {classes?.map((cls) => (
-                <option key={cls.id} value={cls.id}>
-                  {cls.name} — {cls.section}
-                </option>
-              ))}
-            </select>
+          {/* RULE-4: the audience picker is gone. We show a small
+              read-only confirmation instead so the teacher knows
+              exactly where the message is going. */}
+          <div
+            className="rounded-md border bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+            data-testid="teacher-announcement-audience-hint"
+          >
+            {t("audienceHintTeacherClasses")}
           </div>
 
           {error && (

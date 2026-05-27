@@ -1,0 +1,15 @@
+# INFRA-007 (Phase 6) — Grafana dashboard provisioning.
+# Loads any JSON dashboards from /etc/grafana/provisioning/dashboards/.
+
+apiVersion: 1
+
+providers:
+  - name: "EduZim"
+    folder: ""
+    type: file
+    disableDeletion: false
+    editable: true
+    updateIntervalSeconds: 30
+    allowUiUpdates: true
+    options:
+      path: /etc/grafana/provisioning/dashboards

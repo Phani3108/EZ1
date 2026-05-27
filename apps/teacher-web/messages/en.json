@@ -22,7 +22,12 @@
   "nav": {
     "today": "Today",
     "myClasses": "My Classes",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "messages": "Messages",
+    "gradebook": "Gradebook",
+    "plan": "Plan",
+    "studentLife": "Student Life",
+    "professional": "Professional"
   },
   "login": {
     "title": "EduZim Teacher Portal",
@@ -74,6 +79,12 @@
     "saved": "Attendance saved successfully!",
     "saveFailed": "Failed to save attendance. Please try again.",
     "markAll": "Mark All",
+    "markAllPresentN": "Mark all {n} present",
+    "markAllAbsentN": "Mark all {n} absent",
+    "undoBulkN": "Undo ({n} changed)",
+    "periodLabel": "Period",
+    "periodDay": "Day (homeroom)",
+    "periodN": "Period {n}",
     "noStudents": "No students to mark",
     "classDetail": "Class Detail",
     "noAnnouncements": "No announcements for this class",
@@ -91,6 +102,7 @@
     "bodyPlaceholder": "Write your announcement...",
     "targetClass": "Target Class",
     "allClasses": "All My Classes",
+    "audienceHintTeacherClasses": "This will be sent to the parents of every student in your classes.",
     "sendFailed": "Failed to send announcement. Please try again."
   },
   "students": {
@@ -124,7 +136,148 @@
     "ministry": "Aligned with the Ministry of Primary and Secondary Education",
     "vision2030": "Supporting Zimbabwe's Vision 2030",
     "copyright": "© {year} EduZim. All rights reserved.",
-    "motto": "Unity, Freedom, Work"
+    "motto": "Unity, Freedom, Work",
+    "privacyPolicy": "Privacy Policy",
+    "retentionPolicy": "Data Retention",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
+  },
+  "offline": {
+    "offline": "Offline",
+    "showingCached": "Showing cached data",
+    "offlineShowingCached": "Offline — showing cached data"
+  },
+  "plan": {
+    "title": "Plan",
+    "description": "Periods, lesson plans, formative assessments, and exam seat plans.",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "periods": {
+      "title": "Period schedule",
+      "empty": "No periods configured. School admins set these up."
+    },
+    "lessonPlans": {
+      "title": "Lesson plans",
+      "create": "New lesson plan",
+      "save": "Save",
+      "templatesOnly": "Templates only",
+      "templateBadge": "Template",
+      "empty": "No lesson plans yet.",
+      "titlePlaceholder": "Lesson title (e.g. Algebra — Quadratics)",
+      "objectivesPlaceholder": "Learning objectives (optional)",
+      "makeTemplate": "Make this a template (no class)"
+    },
+    "formatives": {
+      "title": "Formative assessments",
+      "create": "Quick poll / exit ticket",
+      "save": "Save",
+      "empty": "No formative assessments yet.",
+      "titlePlaceholder": "Title shown to students",
+      "promptPlaceholder": "The question or prompt",
+      "kindPoll": "Poll",
+      "kindExitTicket": "Exit ticket",
+      "kindQuiz": "Quiz",
+      "responses": "{n} responses"
+    },
+    "seatPlans": {
+      "title": "Exam seat plans",
+      "hint": "The school office configures seat plans for major exams. Ask your administrator for the printed copy on the day."
+    }
+  },
+  "professional": {
+    "title": "Professional Development",
+    "description": "Your CPD records and per-term self-evaluation.",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "cpd": {
+      "title": "CPD records",
+      "add": "Add CPD record",
+      "save": "Save",
+      "empty": "No CPD records yet.",
+      "totalHours": "Total: {hours} hours",
+      "titlePlaceholder": "Title (e.g. Active learning workshop)",
+      "providerPlaceholder": "Provider (optional)",
+      "hoursPlaceholder": "Hours"
+    },
+    "selfEval": {
+      "title": "Self-evaluation",
+      "save": "Submit",
+      "savedAt": "Saved {ts}",
+      "termIdPlaceholder": "Term id",
+      "strengths": "Strengths this term",
+      "growthAreas": "Areas for growth",
+      "planForNext": "Plan for next term",
+      "overallReflection": "Overall reflection"
+    }
+  },
+  "studentLife": {
+    "title": "Student Life",
+    "description": "Incidents, substitute coverage, and homework.",
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "incidents": {
+      "title": "Behaviour incidents",
+      "create": "Log incident",
+      "save": "Save",
+      "empty": "No incidents logged.",
+      "studentIdPlaceholder": "Student id",
+      "classOptional": "Class (optional)",
+      "severityMinor": "Minor",
+      "severityModerate": "Moderate",
+      "severitySerious": "Serious",
+      "severityCritical": "Critical",
+      "summaryPlaceholder": "What happened? Keep it factual.",
+      "resolvedAt": "Resolved {ts}"
+    },
+    "substitute": {
+      "title": "Substitute coverage",
+      "hint": "Admins grant time-bound read access to a colleague's classes; you only see your own active grants here.",
+      "empty": "No active substitute grants.",
+      "covering": "Covering teacher {teacher}…"
+    },
+    "homework": {
+      "title": "Homework",
+      "assign": "Assign homework",
+      "save": "Assign",
+      "empty": "No homework set.",
+      "due": "Due",
+      "titlePlaceholder": "Homework title",
+      "descriptionPlaceholder": "What the students should do"
+    }
+  },
+  "voiceNotes": {
+    "record": "Record",
+    "stop": "Stop",
+    "upload": "Upload",
+    "uploading": "Uploading…",
+    "notSupported": "Voice notes not supported on this device",
+    "error": "Recording failed",
+    "retry": "Retry"
+  },
+  "gradebook": {
+    "title": "Gradebook",
+    "description": "Every mark for every assessment in one matrix view.",
+    "noClasses": "You have no classes assigned.",
+    "noAssessments": "No assessments yet for this class.",
+    "loading": "Loading gradebook…",
+    "termFilterLabel": "Term:",
+    "termFilterPlaceholder": "Filter by term id (optional)",
+    "studentColumn": "Student",
+    "averageColumn": "Average",
+    "absentShort": "Abs"
+  },
+  "messages": {
+    "title": "Messages",
+    "threadsCount": "threads",
+    "noThreads": "No conversations yet",
+    "noThreadsHint": "Parents can start a conversation with you about their child. New threads will appear here.",
+    "threadWithParent": "Parent · {id}",
+    "noMessagesYet": "No messages yet",
+    "threadDetailTitle": "Conversation",
+    "loading": "Loading messages…",
+    "composePlaceholder": "Type a message…",
+    "send": "Send",
+    "redacted": "[redacted]"
   },
   "assessments": {
     "title": "Assessments",

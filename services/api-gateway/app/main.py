@@ -37,13 +37,38 @@ logger = logging.getLogger(__name__)
 settings = get_settings()
 
 # ───────────── Startup secret guard ─────────────
-# Fail closed if the well-known development JWT secret is used in a non-DEBUG environment.
-_DEV_JWT_SECRET = "dev-jwt-secret-change-in-production"
-if not settings.DEBUG and settings.JWT_SECRET_KEY == _DEV_JWT_SECRET:
-    raise RuntimeError(
-        "Refusing to start: JWT_SECRET_KEY is set to the well-known development value "
-        "while DEBUG=False. Set a strong JWT_SECRET_KEY environment variable."
+# BUG-003 / BUG-004 — the well-known dev secret is no longer a config.py
+# default; it must come from env (.env, AWS Secrets Manager, etc.). This
+# guard catches the other ways someone could foot-gun production: too-short
+# values, or values matching any of the historic dev/test strings.
+_KNOWN_BAD_SECRETS = {
+    "dev-jwt-secret-change-in-production",
+    "change-me-in-production",
+    "eduzim-internal-secret-change-in-production",
+    "test-jwt-secret-DO-NOT-USE-IN-PRODUCTION-32chars-min-len-XXXX",
+    "secret",
+    "changeme",
+    "",
+}
+_MIN_SECRET_LEN = 32
+
+if settings.JWT_SECRET_KEY in _KNOWN_BAD_SECRETS:
+    if not settings.DEBUG:
+        raise RuntimeError(
+            "Refusing to start: JWT_SECRET_KEY matches a known-bad/dev value "
+            "while DEBUG=False. Run `scripts/bootstrap-secrets.sh` to generate "
+            "a strong value, or provide one via your secrets manager."
+        )
+    logger.warning(
+        "JWT_SECRET_KEY matches a known-bad/dev value — allowed only because DEBUG=True. "
+        "Never deploy with this value."
     )
+elif len(settings.JWT_SECRET_KEY) < _MIN_SECRET_LEN and not settings.DEBUG:
+    raise RuntimeError(
+        f"Refusing to start: JWT_SECRET_KEY is shorter than {_MIN_SECRET_LEN} characters "
+        "while DEBUG=False. Use a 64-byte (128-hex-char) value via `scripts/bootstrap-secrets.sh`."
+    )
+
 if not settings.DEBUG and not settings.COOKIE_SECURE:
     logger.warning(
         "COOKIE_SECURE=False with DEBUG=False — refresh cookies will be sent over HTTP. "
@@ -68,7 +93,33 @@ app.add_middleware(
 )
 
 # Singletons
-rate_limiter = RateLimiter()
+# BUG-006: RateLimiter requires Redis. We build it once at module load so the
+# per-request hot path doesn't pay reconnection cost. If REDIS_ENABLED=false
+# (test runs, certain dev workflows) we skip rate limiting entirely; the
+# startup guard above refuses production deployments where DEBUG=False AND
+# REDIS_ENABLED=false (handled below).
+def _build_rate_limiter():
+    if settings.REDIS_ENABLED:
+        # INFRA-006 / Phase 5: accept either `redis://` (single-node) or
+        # `redis+sentinel://` (HA) URLs via the shared factory. The
+        # rate-limiter doesn't care which; it just uses the resulting
+        # redis.Redis-compatible client.
+        from eduzim_shared.redis_client import from_url as _redis_from_url
+        client = _redis_from_url(settings.REDIS_URL, decode_responses=True)
+        return RateLimiter(redis_client=client)
+    if not settings.DEBUG:
+        raise RuntimeError(
+            "REDIS_ENABLED=false while DEBUG=False — rate limiting cannot be "
+            "silently disabled in production. Set REDIS_ENABLED=true and "
+            "ensure REDIS_URL points at a reachable Redis."
+        )
+    logger.warning(
+        "REDIS_ENABLED=false (DEBUG=true) — rate limiting is DISABLED for this run."
+    )
+    return None
+
+
+rate_limiter = _build_rate_limiter()
 metrics = MetricsCollector()
 proxy = GatewayProxy()
 
@@ -205,8 +256,20 @@ async def gateway_proxy(request: Request, full_path: str):
                 body = {}
             body["refresh_token"] = rt_cookie
 
-    rl_key, rl_limit, rl_window = get_rate_limit_key(path, user_payload, body)
-    rl_allowed, rl_remaining, rl_reset = rate_limiter.check(rl_key, rl_limit, rl_window)
+    # BUG-006: extract client IP for per-IP rate-limit key on unauthenticated
+    # routes. Behind a reverse proxy this needs to honour X-Forwarded-For,
+    # but only when the proxy is trusted (Phase 5 / Phase 17 will introduce a
+    # TRUSTED_PROXIES setting). For now, trust the immediate client.
+    client_ip = request.client.host if request.client else None
+    rl_key, rl_limit, rl_window = get_rate_limit_key(
+        path, user_payload, body, ip=client_ip,
+    )
+
+    if rate_limiter is None:
+        # DEBUG-mode no-op; the production startup guard prevents this in prod.
+        rl_allowed, rl_remaining, rl_reset = True, rl_limit, int(time.time()) + rl_window
+    else:
+        rl_allowed, rl_remaining, rl_reset = rate_limiter.check(rl_key, rl_limit, rl_window)
 
     if not rl_allowed:
         metrics.record_rate_limit()

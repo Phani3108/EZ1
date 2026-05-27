@@ -4,6 +4,11 @@
   "scripts": {
     "dev:admin": "pnpm --filter admin-web dev",
     "dev:parent": "pnpm --filter parent-web dev",
+    "dev:teacher": "pnpm --filter teacher-web dev",
+    "dev:all": "concurrently -n admin,parent,teacher -c blue,green,magenta \"pnpm dev:admin\" \"pnpm dev:parent\" \"pnpm dev:teacher\"",
+    "backend:up": "docker compose up -d",
+    "backend:down": "docker compose down",
+    "backend:logs": "docker compose logs -f",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "lint:theme-bleed": "bash scripts/check-theme-bleed.sh",

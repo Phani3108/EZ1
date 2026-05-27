@@ -51,6 +51,27 @@ export function Footer() {
           </div>
         </div>
 
+        {/* Q-010 (Phase 9): privacy / DPO links — ZDPA + Children's Act. */}
+        <nav
+          aria-label="Privacy and policy links"
+          className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground"
+        >
+          <a href="/privacy" className="hover:text-foreground">
+            {t("privacyPolicy")}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a href="/retention" className="hover:text-foreground">
+            {t("retentionPolicy")}
+          </a>
+          <span aria-hidden="true">·</span>
+          <a
+            href={`mailto:${t("dpoEmail")}`}
+            className="hover:text-foreground"
+          >
+            {t("dpoContact", { email: t("dpoEmail") })}
+          </a>
+        </nav>
+
         <div className="mt-4 border-t pt-3">
           <p className="text-xs text-muted-foreground text-center">
             {t("copyright", { year: String(year) })}

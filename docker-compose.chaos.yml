@@ -1,0 +1,91 @@
+# EduZim — Phase 7 chaos profile (PH7-2).
+#
+# Adds toxiproxy in front of the data-plane (postgres, kafka, redis)
+# so we can inject:
+#   * 5% packet loss
+#   * 200ms added latency
+#   * Periodic Kafka broker restart
+#
+# Usage:
+#     docker compose -f docker-compose.prod.yml \
+#                    -f docker-compose.observability.yml \
+#                    -f docker-compose.chaos.yml up -d
+#
+# (Optionally also -f docker-compose.ha.yml.)
+#
+# Toxics are configured at runtime via the toxiproxy admin API
+# (default port 8474). The `scripts/load/chaos_profiles.sh` script
+# applies the Phase-7 default profile.
+#
+# WHY THIS IS AN OVERLAY:
+#   Routing services through toxiproxy is destructive — every request
+#   now goes through one more hop. We only want this in load-test
+#   environments, never in real prod. The overlay-pattern means a
+#   load test is opt-in via the compose flag; production deploys never
+#   pick up this file.
+
+version: "3.9"
+
+services:
+  # ════════════════════════════════════════════════════════════════
+  # Toxiproxy — chaos injector
+  # ════════════════════════════════════════════════════════════════
+  toxiproxy:
+    image: shopify/toxiproxy:2.9.0
+    container_name: eduzim-toxiproxy
+    restart: always
+    ports:
+      - "8474:8474"     # admin API
+      # The chaos profile creates proxies on these ports:
+      - "5433:5433"     # postgres-via-toxiproxy
+      - "9093:9093"     # kafka-via-toxiproxy (avoid clash with alertmanager:9093)
+      - "6380:6380"     # redis-via-toxiproxy
+    networks:
+      - eduzim-network
+    depends_on:
+      postgres:
+        condition: service_started
+
+  # ════════════════════════════════════════════════════════════════
+  # Service env overrides — route through toxiproxy
+  # ════════════════════════════════════════════════════════════════
+  # Each service's DATABASE_URL / KAFKA / REDIS env is repointed at
+  # toxiproxy. The toxiproxy admin script then defines the upstream
+  # routing (toxiproxy:5433 → postgres:5432, etc.) and applies the
+  # toxics on top.
+  #
+  # The convention: name the proxy `<upstream>-proxy` so log filters
+  # can spot when a connection is going through chaos.
+
+  api-gateway:
+    environment:
+      # The gateway uses Redis for rate-limit.
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@toxiproxy:6380/3"
+
+  identity:
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/auth_db"
+      KAFKA_BOOTSTRAP_SERVERS: "toxiproxy:9093"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@toxiproxy:6380/0"
+
+  academics:
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/academics_db"
+      REPORTING_DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/reporting_db"
+      KAFKA_BOOTSTRAP_SERVERS: "toxiproxy:9093"
+
+  finance:
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/fees_db"
+      KAFKA_BOOTSTRAP_SERVERS: "toxiproxy:9093"
+
+  communications:
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/comms_db"
+      KAFKA_BOOTSTRAP_SERVERS: "toxiproxy:9093"
+      REDIS_URL: "redis://:${REDIS_PASSWORD}@toxiproxy:6380/2"
+
+  reporting-service:
+    environment:
+      DATABASE_URL: "postgresql://${DB_USER:-eduzim}:${DB_PASSWORD}@toxiproxy:5433/reporting_db"
+      KAFKA_BOOTSTRAP_SERVERS: "toxiproxy:9093"

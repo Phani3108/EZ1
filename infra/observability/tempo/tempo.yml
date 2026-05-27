@@ -1,0 +1,59 @@
+# Tempo configuration — INFRA-008 / Phase 6.
+#
+# Single-node Tempo accepting OTLP/gRPC at :4317 and OTLP/HTTP at :4318.
+# Services configure OTEL_EXPORTER_OTLP_ENDPOINT=http://tempo:4317 in
+# their env (set by docker-compose.observability.yml).
+#
+# Storage: local filesystem, 7d retention. For prod, swap the
+# `local` backend for S3 / GCS.
+
+server:
+  http_listen_port: 3200
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: 0.0.0.0:4317
+        http:
+          endpoint: 0.0.0.0:4318
+
+ingester:
+  max_block_duration: 5m
+
+compactor:
+  compaction:
+    block_retention: 168h        # 7d
+    compacted_block_retention: 1h
+
+metrics_generator:
+  registry:
+    external_labels:
+      source: tempo
+      cluster: eduzim
+  storage:
+    path: /tmp/tempo/generator/wal
+    remote_write:
+      - url: http://prometheus:9090/api/v1/write
+        send_exemplars: true
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /tmp/tempo/wal
+    local:
+      path: /tmp/tempo/blocks
+    pool:
+      max_workers: 100
+      queue_depth: 10000
+
+# Enable Tempo's "service graph" — auto-derives a service-to-service
+# topology from spans. Visible in Grafana as a node graph.
+overrides:
+  defaults:
+    metrics_generator:
+      processors:
+        - service-graphs
+        - span-metrics

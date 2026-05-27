@@ -26,6 +26,7 @@ import {
   GraduationCap,
 } from "lucide-react";
 import { useApiQuery } from "@/hooks/use-api-query";
+import { useCachedApiQuery } from "@/hooks/use-cached-api-query";
 import { teacher, student, comm } from "@/lib/api";
 import type {
   TeacherClass,
@@ -36,6 +37,7 @@ import type {
 import { RosterTab } from "./roster-tab";
 import { AttendanceTab } from "./attendance-tab";
 import { AssessmentsTab } from "./assessments-tab";
+import { OfflineBadge } from "@/components/offline-badge";
 
 export default function ClassDetailPage() {
   const params = useParams();
@@ -57,18 +59,32 @@ export default function ClassDetailPage() {
     [classes, classId]
   );
 
-  // Fetch enrollments for roster
-  const { data: enrollments, isLoading: enrollmentsLoading } =
-    useApiQuery<Enrollment[]>(
-      () => student.getEnrollmentsByClass(classId),
-      [classId]
-    );
+  // T-014: roster fetches go through the offline-aware cached hook so a
+  // teacher who lost connectivity mid-period still sees the last-known
+  // roster instead of an infinite spinner (BUG-010). 24h TTL is a school
+  // day — fresh enough for daily use, tolerant of a missed background
+  // refresh.
+  const {
+    data: enrollments,
+    isLoading: enrollmentsLoading,
+    fromCache: enrollmentsFromCache,
+  } = useCachedApiQuery<Enrollment[]>(
+    () => student.getEnrollmentsByClass(classId),
+    { cacheKey: `roster:enrollments:${classId}` },
+    [classId]
+  );
 
-  // Fetch students for names
-  const { data: students } = useApiQuery<StudentType[]>(
+  // Student names cache is shared across all class pages — the student
+  // list doesn't change per class. Key is global rather than class-scoped.
+  const { data: students, fromCache: studentsFromCache } = useCachedApiQuery<
+    StudentType[]
+  >(
     () => student.list(),
+    { cacheKey: "roster:students:list" },
     []
   );
+
+  const rosterFromCache = enrollmentsFromCache || studentsFromCache;
 
   const studentMap = useMemo(() => {
     const map = new Map<string, StudentType>();
@@ -105,9 +121,16 @@ export default function ClassDetailPage() {
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div className="flex-1">
-          <h1 className="text-2xl font-bold tracking-tight">
-            {classInfo ? classInfo.name : t("classDetail")}
-          </h1>
+          <div className="flex items-center gap-2 flex-wrap">
+            <h1 className="text-2xl font-bold tracking-tight">
+              {classInfo ? classInfo.name : t("classDetail")}
+            </h1>
+            {/* T-014: live network status pill — shows ONLY when offline. */}
+            <OfflineBadge mode="status" />
+            {/* T-014: cache pill — shows when the roster we're displaying
+                came from IndexedDB instead of a fresh fetch. */}
+            <OfflineBadge mode="cache" fromCache={rosterFromCache} />
+          </div>
           {classInfo && (
             <p className="text-sm text-muted-foreground">
               {t("section", { section: classInfo.section })}

@@ -96,7 +96,11 @@
     "ministry": "Zvakafanirana neBazi reKudzidzisa Kwepuraimari neSecondary",
     "vision2030": "Kutsigira Zimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Kodzero dzese dzakachengetedzwa.",
-    "motto": "Kubatana, Rusununguko, Basa"
+    "motto": "Kubatana, Rusununguko, Basa",
+    "privacyPolicy": "Mutemo weZvakavanzika",
+    "retentionPolicy": "Kuchengetedzwa kweRuzivo",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
   },
   "national": {
     "title": "Zvedu Nyika",

@@ -1,0 +1,93 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "schemaVersion": 39,
+  "title": "EduZim — Gateway Overview",
+  "tags": ["eduzim", "gateway"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {"from": "now-1h", "to": "now"},
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Requests / sec",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(rate(gateway_requests_total[5m]))",
+          "legendFormat": "all",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "reqps"}}
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "5xx rate %",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "100 * sum(rate(gateway_requests_total{status=~\"5..\"}[5m])) / sum(rate(gateway_requests_total[5m]))",
+          "legendFormat": "5xx",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "percent", "max": 100, "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 0.1}, {"color": "red", "value": 1}]}}}
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Rate-limit blocks (/s)",
+      "gridPos": {"h": 4, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "rate(gateway_rate_limit_blocks_total[5m])",
+          "legendFormat": "blocks",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Downstream errors (/s)",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(rate(gateway_downstream_errors_total[5m]))",
+          "legendFormat": "errors",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Request rate by route",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 4},
+      "targets": [
+        {
+          "expr": "sum by (route) (rate(gateway_requests_total[5m]))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "Latency p95 (ms) by route",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 4},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (route, le) (rate(gateway_request_duration_ms_bucket[5m])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {"defaults": {"unit": "ms"}}
+    }
+  ]
+}

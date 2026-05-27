@@ -1,4 +1,102 @@
 {
+  "parentMessages": {
+    "title": "Mameseji",
+    "description": "Taura nevadzidzisi vemwana wako.",
+    "loading": "Kurodha…",
+    "noThreads": "Hapana nhaurirano. Tanga imwe nokuisa ID yemudzidzisi pasi apa.",
+    "teacherIdPlaceholder": "ID yemudzidzisi (kubva kuchikoro)",
+    "startThread": "Tanga",
+    "teacherN": "Mudzidzisi · {id}",
+    "noMessagesYet": "Hapana mameseji azvino",
+    "threadTitle": "Nhaurirano",
+    "composePlaceholder": "Nyora meseji…",
+    "send": "Tumira"
+  },
+  "parentEvents": {
+    "title": "Zviitiko",
+    "description": "Mazuva emitambo, bvunzo, mazororo, nemisangano.",
+    "loading": "Kurodha…",
+    "empty": "Hapana zviitiko zvakarongwa."
+  },
+  "parentConnect": {
+    "title": "Sangana",
+    "description": "Taura nechikoro: bhuka musangano, sayina permission slip, taura nezvedambudziko.",
+    "loading": "Kurodha…",
+    "cancel": "Kanzura",
+    "grievances": {
+      "title": "Madambudziko",
+      "create": "Taura nezvedambudziko",
+      "submit": "Tumira",
+      "empty": "Hapana madambudziko akatumirwa.",
+      "subjectPlaceholder": "Nyaya (pfupi)",
+      "bodyPlaceholder": "Tsanangura dambudziko rako…",
+      "resolution": "Mhinduro: {notes}"
+    },
+    "conferences": {
+      "title": "Musangano weMubereki neMudzidzisi",
+      "hint": "Isa ID yemudzidzisi kuti uone nguva dziripo.",
+      "teacherIdPlaceholder": "ID yemudzidzisi",
+      "noSlots": "Hapana nguva dziripo nemudzidzisi uyu.",
+      "book": "Bhuka",
+      "booked": "Yakabhukwa"
+    },
+    "slips": {
+      "title": "Mapepa eMvumo",
+      "empty": "Hapana mapepa akavhurwa.",
+      "deadline": "Nguva inopera: {date}",
+      "respond": "Pindura",
+      "namePlaceholder": "Nyora zita rako rizere serunyoro",
+      "approve": "Tendera",
+      "decline": "Ramba"
+    }
+  },
+  "parentMore": {
+    "title": "Zvimwe",
+    "description": "Mota, chikafu, mibatsiro, nyuzipepa, negarari.",
+    "transport": {
+      "title": "Mota",
+      "empty": "Hapana mota dzakagadziriswa."
+    },
+    "meal": {
+      "title": "Credit yeChikafu",
+      "pickChild": "Sarudza mwana paswitcher kuti uone balance yake.",
+      "balance": "Balance: ${amount}",
+      "topup": "Wedzera"
+    },
+    "donations": {
+      "title": "Mibatsiro",
+      "purposePlaceholder": "Chinangwa (semuenzaniso 'rabhurari')",
+      "anonymous": "Pa zvisina kuzivikanwa",
+      "submit": "Pa"
+    },
+    "newsletter": {
+      "title": "Nyuzipepa",
+      "empty": "Hapana zviri kunyorwa."
+    },
+    "gallery": {
+      "title": "Garari",
+      "empty": "Hapana mifananidzo azvino."
+    }
+  },
+  "student": {
+    "loading": "Kurodha…",
+    "studentOnlyHint": "Peji iri ndeyevana vechikoro. Iwe semubereki, ona ruzivo rwemwana wako pa Home tab.",
+    "schedule": {
+      "title": "Sheduru Yangu",
+      "periodsTitle": "Nguva",
+      "empty": "Chikoro chenyu hachisati chaburitsa sheduru."
+    },
+    "marks": {
+      "title": "Mamarks Angu",
+      "empty": "Hapana mamarks akanyorwa.",
+      "absent": "Haasipo",
+      "subjectN": "Chidzidzo {id}"
+    },
+    "assignments": {
+      "title": "Mabasa Angu",
+      "empty": "Hapana mabasa azvino."
+    }
+  },
   "common": {
     "appName": "EduZim",
     "loading": "Riri kumirira…",
@@ -95,7 +193,11 @@
     "ministry": "Zvakafanirana neBazi reKudzidzisa Kwepuraimari neSecondary",
     "vision2030": "Kutsigira Zimbabwe Vision 2030",
     "copyright": "© {year} EduZim. Kodzero dzese dzakachengetedzwa.",
-    "motto": "Kubatana, Rusununguko, Basa"
+    "motto": "Kubatana, Rusununguko, Basa",
+    "privacyPolicy": "Mutemo weZvakavanzika",
+    "retentionPolicy": "Kuchengetedzwa kweRuzivo",
+    "dpoContact": "DPO: {email}",
+    "dpoEmail": "dpo@eduzim.co.zw"
   },
   "national": {
     "title": "Zvedu Nyika",
