@@ -132,6 +132,17 @@ SERVICE_ROUTES = {
     "/api/v1/comm/invitations": ("COMMUNICATIONS_SERVICE_URL", "communications"),
     "/api/v1/comm/invite-outbox": ("COMMUNICATIONS_SERVICE_URL", "communications"),
 
+    # Phase 16 — academic-content (curriculum, question bank,
+    # templates). All in academics.
+    "/api/v1/curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/ministry/national-curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/ministry/bulk/national-curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/bulk/curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/questions": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/question-drafts": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/homework-templates": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/lesson-plan-templates": ("ACADEMICS_SERVICE_URL", "academics"),
+
     # Phase 12d/e/f — parent-life surfaces (all in academics).
     "/api/v1/school-events": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/performance-opt-out": ("ACADEMICS_SERVICE_URL", "academics"),
@@ -492,6 +503,45 @@ RBAC_MAP = [
     ("GET",    "/api/v1/comm/invite-outbox", "school:manage"),
     ("POST",   "/api/v1/comm/invite-outbox/", "school:manage"),
     ("POST",   "/api/v1/comm/invitations/dispatch", "invite:write"),
+
+    # Phase 16 — Curriculum (school-local).
+    ("GET",    "/api/v1/curriculum/tree", "authenticated"),
+    ("GET",    "/api/v1/curriculum/subjects", "authenticated"),
+    ("GET",    "/api/v1/curriculum/topics/", "authenticated"),
+    ("GET",    "/api/v1/curriculum/coverage", "school:manage"),
+    ("POST",   "/api/v1/curriculum/subjects", "school:manage"),
+    ("POST",   "/api/v1/curriculum/units", "school:manage"),
+    ("POST",   "/api/v1/curriculum/topics", "school:manage"),
+    ("POST",   "/api/v1/curriculum/adopt-subject", "school:manage"),
+    ("POST",   "/api/v1/curriculum/tag", "authenticated"),
+    ("POST",   "/api/v1/bulk/curriculum", "school:manage"),
+
+    # Ministry-side National Curriculum.
+    # Reads open to ministry:read OR school:manage (SchoolAdmin browses
+    # the adoption picker). Writes gated to school:create
+    # (Provisioner / EduZimOps).
+    ("GET",    "/api/v1/ministry/national-curriculum", "authenticated"),
+    ("POST",   "/api/v1/ministry/national-curriculum/", "school:create"),
+    ("POST",   "/api/v1/ministry/bulk/national-curriculum", "school:create"),
+
+    # Question Bank.
+    ("GET",    "/api/v1/questions", "authenticated"),
+    ("POST",   "/api/v1/questions", "school:manage"),
+    # Teachers submit drafts; admins approve.
+    ("POST",   "/api/v1/question-drafts", "question:draft"),
+    ("GET",    "/api/v1/question-drafts", "school:manage"),
+    ("POST",   "/api/v1/question-drafts/", "school:manage"),
+    # Assessment composition + auto-grading.
+    ("POST",   "/api/v1/assessments/", "school:manage"),
+
+    # Templates.
+    ("GET",    "/api/v1/homework-templates", "authenticated"),
+    ("POST",   "/api/v1/homework-templates", "authenticated"),
+    ("POST",   "/api/v1/homework-templates/", "school:manage"),
+    ("POST",   "/api/v1/homework/", "school:manage"),
+    ("GET",    "/api/v1/lesson-plan-templates", "authenticated"),
+    ("POST",   "/api/v1/lesson-plan-templates", "authenticated"),
+    ("POST",   "/api/v1/lesson-plan-templates/", "school:manage"),
 
     # Phase 12d/e/f — parent-life surfaces.
     # School events — anyone authenticated reads; admin writes.

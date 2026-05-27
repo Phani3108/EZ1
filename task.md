@@ -609,6 +609,43 @@ EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activat
 
 ---
 
+## §16 Curriculum, Question Bank & Content Templates (Phase 16)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| C-001 | high | Subject extension + Unit + Topic models | 16a | ✅ closed 2026-05-27 (`services/academics/app/models/curriculum.py`; grade_levels + national_subject_id on Subject) |
+| C-002 | high | NationalCurriculum (NationalSubject / Unit / Topic) | 16a | ✅ closed 2026-05-27 (`services/academics/app/models/national_curriculum.py`; publish gate) |
+| C-003 | high | Curriculum endpoints + adopt-subject + tree view | 16a | ✅ closed 2026-05-27 (`services/academics/app/api/curriculum_routes.py` + `national_curriculum_routes.py`; idempotent adopt) |
+| C-004 | medium | ZIMSEC sample seeder (`scripts/import_zimsec.py`) | 16a | ✅ closed 2026-05-27 (3 placeholder subjects, idempotent; clear "replace before production" notice) |
+| C-005 | high | Bulk CSV import (school-local + Ministry) + templates registry | 16a | ✅ closed 2026-05-27 (`services/academics/app/api/bulk_curriculum.py`; templates_routes extended with curriculum.csv + national-curriculum.csv) |
+| C-006 | high | Topic↔Resource cross-index (topic_ids columns) | 16b | ✅ closed 2026-05-27 (`services/academics/app/api/curriculum_index_routes.py`; coverage API) |
+| C-007 | high | Question Bank: Question + QuestionOption + QuestionDraft | 16c | ✅ closed 2026-05-27 (`services/academics/app/models/question_bank.py`) |
+| C-008 | high | Question Bank: routes + draft approval flow + auto-grading | 16c | ✅ closed 2026-05-27 (`services/academics/app/api/question_bank_routes.py`; MCQ/TF/SA scoring) |
+| C-009 | medium | Assessment composition (description, instructions, question_ids, exam_paper_attachment_id) | 16c | ✅ closed 2026-05-27 (Assessment model extended; `POST /assessments/{id}/compose`) |
+| C-010 | high | HomeworkTemplate + LessonPlanTemplate | 16d | ✅ closed 2026-05-27 (`services/academics/app/models/content_templates.py` + `content_template_routes.py`; HoD school-wide publish + instantiate + sync-from-source) |
+| C-011 | medium | Attachment polish (MIME + size + owner_kinds) | 16e | ✅ closed 2026-05-27 (Office MIMEs added; cap bumped 10MB → 25MB; 8 new owner_kinds) |
+| U-005 | high | Teacher-web /curriculum (tree + topic detail) | 16f | ✅ closed 2026-05-27 (`apps/teacher-web/src/app/(teacher)/curriculum/**`) |
+| U-006 | high | Teacher-web /question-bank (browse + submit draft + HoD drafts) | 16f | ✅ closed 2026-05-27 (`apps/teacher-web/src/app/(teacher)/question-bank/**`) |
+| U-007 | medium | Admin-web /curriculum + /curriculum/coverage + /curriculum/adopt | 16g | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(admin)/curriculum/**`) |
+| U-008 | medium | Admin-web /question-bank/review (HoD queue) | 16g | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(admin)/question-bank/review/page.tsx`) |
+| U-009 | medium | Ministry-web /ministry/curriculum (publish + new subject modal) | 16h | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(ministry)/ministry/curriculum/page.tsx`) |
+| G-002 | high | Gateway SERVICE_ROUTES + RBAC for curriculum + question bank + templates | 16f | ✅ closed 2026-05-27 (`services/api-gateway/app/routes.py`) |
+| A-022 | high | ADR 022 — Curriculum + Question Bank + Templates architecture | 16i | ✅ closed 2026-05-27 (`docs/decisions/022-curriculum-and-question-bank.md`) |
+
+**Gate**: ✅ All decisions locked in the Phase 16 plan are live in backend + UI. Backend regression: **729 tests passing** across 4 services (academics 470 + communications 130 + finance 90 + identity 39). Audit invariants confirmed clean: no question text, no answers, no body text, no template titles in `target` / `details` — only IDs + counts + admin-supplied rejection reasons.
+
+**Open follow-ups** (not blocking 16 closeout):
+- Attachment cloning on template instantiation (placeholder `attachments_cloned: 0`).
+- OCR for scanned PDFs/images (Tesseract — Phase 17).
+- Image thumbnail server-side (Pillow — Phase 17).
+- Curriculum versioning + ZIMSEC v2 upgrade path (Phase 17+).
+- Cross-school template sharing (Phase 18).
+- Essay auto-grading (Phase 18).
+- JSONB + GIN index for topic_ids on Postgres (Phase 17 swap; current LIKE-substring path works on both).
+- Phase 16h /ministry/curriculum/import bulk-upload UI (CSV upload exists at the API; UI page is a follow-up).
+
+---
+
 ## §11 Cross-cutting Quality
 
 | ID | Title | Phase | Status |

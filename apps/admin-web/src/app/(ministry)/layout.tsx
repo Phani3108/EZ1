@@ -44,6 +44,7 @@ interface MinistryNavItem {
 const ministryNav: MinistryNavItem[] = [
   { title: "Overview", href: "/ministry", icon: LayoutDashboard },
   { title: "School onboarding", href: "/ministry/onboarding", icon: ClipboardCheck },
+  { title: "National Curriculum", href: "/ministry/curriculum", icon: BookOpen },
   { title: "Geography", href: "/ministry/geography", icon: Map },
   { title: "Enrolment", href: "/ministry/enrolment", icon: Users2 },
   { title: "Attendance", href: "/ministry/attendance", icon: ClipboardCheck },
