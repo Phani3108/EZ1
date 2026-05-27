@@ -140,6 +140,9 @@ from app.api.community_routes import router as _community_router  # noqa: E402
 # Phase 13e: boarding + multi-campus.
 from app.api.special_routes import router as _special_router  # noqa: E402
 
+# Phase 14: Ministry (MoPSE) cross-school aggregation (read-only).
+from app.api.ministry_routes import router as _ministry_router  # noqa: E402
+
 app.include_router(_school_router, prefix="/api/v1")
 app.include_router(_student_router, prefix="/api/v1")
 app.include_router(_bulk_router, prefix="/api/v1")
@@ -158,3 +161,4 @@ app.include_router(_compliance_router, prefix="/api/v1")
 app.include_router(_ops_router, prefix="/api/v1")
 app.include_router(_community_router, prefix="/api/v1")
 app.include_router(_special_router, prefix="/api/v1")
+app.include_router(_ministry_router, prefix="/api/v1")

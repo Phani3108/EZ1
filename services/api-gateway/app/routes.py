@@ -104,6 +104,16 @@ SERVICE_ROUTES = {
     "/api/v1/boarding": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/campuses": ("ACADEMICS_SERVICE_URL", "academics"),
 
+    # Phase 14 — Ministry (MoPSE) cross-school aggregation (read-only).
+    # DEC-013: ministry:read is the ONLY permission Ministry holds.
+    # Most Ministry endpoints proxy academics, but the fees rollup
+    # (M-003) lives in finance because that's where the Invoice table
+    # is. Per ADR 020 the admin-web client joins finance per-school
+    # totals against academics geography reference data — no
+    # cross-service HTTP on Ministry page loads.
+    "/api/v1/ministry/fees": ("FINANCE_SERVICE_URL", "finance"),
+    "/api/v1/ministry": ("ACADEMICS_SERVICE_URL", "academics"),
+
     # Phase 12d/e/f — parent-life surfaces (all in academics).
     "/api/v1/school-events": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/performance-opt-out": ("ACADEMICS_SERVICE_URL", "academics"),
@@ -393,6 +403,37 @@ RBAC_MAP = [
     ("POST", "/api/v1/boarding/", "school:manage"),
     ("GET",  "/api/v1/campuses", "authenticated"),
     ("POST", "/api/v1/campuses", "school:manage"),
+
+    # Phase 14 — Ministry (MoPSE) cross-school aggregation (READ-ONLY).
+    # DEC-013: ministry:read is the only permission Ministry holds.
+    # NO POST / PUT / DELETE entries here — they would 404 (router does
+    # not register them) but listing them explicitly here would also be
+    # wrong: gateway must not advertise write paths under /ministry.
+    # The academics route layer asserts the Ministry role again as
+    # defence-in-depth.
+    ("GET", "/api/v1/ministry/schools", "ministry:read"),
+    ("GET", "/api/v1/ministry/enrolment", "ministry:read"),
+    ("GET", "/api/v1/ministry/attendance", "ministry:read"),
+    ("GET", "/api/v1/ministry/geography", "ministry:read"),
+    # M-003 — finance rollup. Proxied to finance-service.
+    ("GET", "/api/v1/ministry/fees", "ministry:read"),
+    ("GET", "/api/v1/ministry/fees/defaulters", "ministry:read"),
+    # M-004 — compliance rollup (lives in academics).
+    ("GET", "/api/v1/ministry/compliance", "ministry:read"),
+    # M-005 — dropout heatmap (academics).
+    ("GET", "/api/v1/ministry/dropouts", "ministry:read"),
+    # M-006 — subject pass-rate by region (academics).
+    ("GET", "/api/v1/ministry/pass-rate", "ministry:read"),
+    # M-007 — PTR (academics). Device + electricity TBD in follow-up.
+    ("GET", "/api/v1/ministry/ptr", "ministry:read"),
+    # M-008 — comparative side-by-side per-school view.
+    ("GET", "/api/v1/ministry/comparative", "ministry:read"),
+    # M-009 — policy impact (before/after metric).
+    ("GET", "/api/v1/ministry/policy-impact", "ministry:read"),
+    # M-010 — donor / NGO impact rollup.
+    ("GET", "/api/v1/ministry/donors", "ministry:read"),
+    # M-011 — UNESCO / UNICEF export snapshot.
+    ("GET", "/api/v1/ministry/exports", "ministry:read"),
 
     # Phase 12d/e/f — parent-life surfaces.
     # School events — anyone authenticated reads; admin writes.

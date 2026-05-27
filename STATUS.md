@@ -169,14 +169,14 @@ VISION.md describes six pillars. Reality:
 
 | Sub-capability | Status |
 |---|---|
-| Ministry-specific surface | ⛔ Entire pillar unbuilt. Scheduled Phase 14. |
-| Cross-school aggregation API | ⛔ |
-| District / Province / National dashboards | ⛔ |
-| Compliance dashboard | ⛔ |
-| Drop-out heatmap | ⛔ |
-| Resource allocation views | ⛔ |
-| Donor / NGO impact reporting | ⛔ |
-| International (UNESCO / UNICEF) exports | ⛔ |
+| Ministry-specific surface | ✅ Phase 14 closed 2026-05-27. `(ministry)` route group in admin-web (ADR 020) with read-only nav across 11 dashboards. |
+| Cross-school aggregation API | ✅ `services/academics/app/api/ministry_routes.py` + `services/finance/app/api/ministry_routes.py`. Role-gated at gateway (`ministry:read`) AND at the route layer (defence-in-depth). |
+| District / Province / National dashboards | ✅ Enrolment + attendance + fees + dropouts + pass-rate + PTR all support `scope=district\|province\|national`. |
+| Compliance dashboard | ✅ `/ministry/compliance` per (school, template) submission status counts, period-filterable. |
+| Drop-out heatmap | ⚠️ District bar chart shipped; Zim geomap deferred to a follow-up (data contract stable; ECharts geomap component already exists). |
+| Resource allocation views | ⚠️ PTR shipped; `devices_per_school` + `electricity_coverage` are placeholder `null`s pending a `SchoolFacility` model. |
+| Donor / NGO impact reporting | ✅ `/ministry/donors` aggregates Sponsorship by scope (committed, received, fulfilment). Money amounts are an ADR-018 exception (money story). |
+| International (UNESCO / UNICEF) exports | ✅ `/ministry/exports/unesco?year=…` returns a stable canonical snapshot; admin-web Exports page renders + downloads it as JSON. |
 
 ---
 
@@ -188,7 +188,7 @@ VISION.md describes six pillars. Reality:
 | Student | ✅ ~70% of daily reality (Phase 12g, 2026-05-27) | Role + login via `Student.user_id` linkage; `/students/me` resolves to academic record. Schedule, marks, attendance (shared with parent route + role scoping), announcements (shared), assignments scaffold, notifications via provider abstraction. **Deferred to Phase 15**: S-009 quizzes (ties to learning layer), S-011 student↔teacher chat (needs policy pass), S-013 goal tracker. |
 | Parent | ✅ ~95% of daily reality (Phase 12, 2026-05-27) | Phase 12a–12g closed. **Foundations**: ChildSwitcher + ChildProvider + role-aware nav. **Payments**: PaymentProvider abstraction (`PaynowProvider`, `ManualHandoverProvider`) + per-school config (`SchoolPaymentConfig`) + `POST /fees/payments/checkout` + `POST /fees/payments/manual/confirm` + server-side PDF receipts/invoices via pre-existing `pdf_renderer.py`. **Notifications**: NotificationProvider abstraction across SMS/Push/Email/WhatsApp (`AfricasTalking`, `FCM`, `SendGrid`, `MetaCloud` + per-channel manual fallback) + per-school per-channel config (`SchoolNotificationConfig`) + `POST /comm/notify/dispatch`. **Logistics**: conference slots+bookings, digital permission slips with e-sig upsert, grievances with body-not-logged audit invariant, transport bus + latest-ping. **Lifestyle**: meal credit topup, donations with anonymous flag, newsletter, gallery (refs T-008 attachments), sibling discount rule. 14 new tables + 13 backend test files. **Audit invariants**: recipients, bodies, notes, signed names (where appropriate), and provider config secrets never logged; amounts ARE logged for money moves per ADR 018. |
 | School Admin | ✅ ~90% of daily reality (Phase 13, 2026-05-27) | **All of Phase 13 (a-e) closed.** 13a People + HR: NonTeachingStaff with role enum + soft-terminate; LeaveRequest with status flow; EmploymentContract (salary BAND not amount); SalarySlip (cents, auto-net); PerformanceReview (rating + JSON criteria, summary never audit-logged); AdmissionApplication (status flow with student_id guard); StudentTransfer with transcript attachment. 13b Compliance: ComplianceReportTemplate + ComplianceReportSubmission lifecycle; discipline + grievance rollup endpoints; HealthRecord (PIA-gated to nurse/admin, **body never audit-logged**, reads ALSO audited). 13c Ops: Expense + VendorPayment + CapitalProject (operational finance separate from fees-service ledger); Asset + AssetMovement (append-only); LibraryBook + BookLoan with capacity check; Visitor sign-in/out log. 13d Community: PolicyDocument with versioning + visibility filter; Sponsor + Sponsorship lifecycle; Alumnus tracking with auto-stamped last_contacted_at. 13e Specials: BoardingRoom + BoardingAssignment with capacity + double-assign guards; Campus with single-primary enforcement. **Admin-web UI for these features is the remaining gap** — backend is complete, 37 new backend tests; 5 model files + 5 routes files + 5 Alembic migrations (015-019). |
-| Ministry | ⛔ 0% | Entire surface. Per ADR 013, viewer + auditor only. See `task.md` §10. |
+| Ministry | ✅ ~85% (Phase 14, 2026-05-27) | Phase 14a–14e closed. **Foundations** (14a): role `Ministry` + perm `ministry:read` seeded; ADR 020 chose `(ministry)` route group inside admin-web; cross-school sentinel UUID `eeeeeeee-…` for audit rows that span tenants. **Aggregation API** (14a-14d): 13 GET endpoints across academics + finance. Every endpoint asserts the Ministry role explicitly (defence-in-depth). **Dashboards** (14e): admin-web `(ministry)/ministry/**` with sidebar nav (Overview, Geography, Enrolment, Attendance, Drop-outs, Subjects, Resources, Compliance, Comparative, Donors, Exports). Distinct emerald colorway. **Audit invariants**: scope label + endpoint + row count only; no school names, no district/province names, no actor PII. Money amounts ARE logged for the donor endpoint (ADR-018 money-story exception). **Tests**: 25 academics ministry tests + 6 finance ministry tests, all passing. **Open**: M-005 Zimbabwe geomap (data contract stable, viz pending); M-007 devices/electricity (needs `SchoolFacility` model — placeholder fields land as null until then). |
 
 ---
 

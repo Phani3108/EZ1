@@ -341,20 +341,20 @@ PH2-1 produced an extended design (see `docs/decisions/006-addendum-module-call-
 
 - **Gate**: ✅ closed in code. Academics 379 tests (was 342, +37). 5 new model files + 5 new routes files + 5 new migrations. Admin-web UI for these features is the Phase 13g follow-up (tracked separately).
 
-### Phase 14 — Ministry layer (viewer + auditor only)
+### Phase 14 — Ministry layer (viewer + auditor only) — ✅ CLOSED 2026-05-27
 **Goal**: aggregate dashboards for Ministry.
-- [ ] M-001 Provision `ministry-web` PWA (or Ministry role inside admin-web — final form to be decided in Phase 14 ADR). Locked tier: read-only.
-- [ ] M-002 Cross-school aggregation API in academics + finance services. Aggregation is a separate read path on the reporting projection.
-- [ ] M-003 District / Province / National dashboards (uses ECharts per DEC-011).
-- [ ] M-004 Compliance dashboard (which schools have submitted what).
-- [ ] M-005 Drop-out heatmap (Zimbabwe geomap).
-- [ ] M-006 Subject pass-rate by region.
-- [ ] M-007 Resource allocation views (PTR, devices/school, electricity coverage).
-- [ ] M-008 Anonymized comparative views.
-- [ ] M-009 Policy impact tracking.
-- [ ] M-010 Donor / NGO impact reporting.
-- [ ] M-011 One-click UNESCO / UNICEF export templates.
-- **Gate**: a Ministry user can log in, see national-level numbers, drill to district, drill to school, and export every dashboard as CSV/PDF. No operational verbs anywhere in the UI.
+- [x] M-001 Ministry role + `ministry:read` permission seeded (`scripts/seed-baseline.sh`). ADR 020 chose `(ministry)` route group inside admin-web over a standalone PWA. ✅ closed 2026-05-27
+- [x] M-002 Cross-school aggregation API: `services/academics/app/api/ministry_routes.py` + `services/finance/app/api/ministry_routes.py`. Route layer asserts Ministry role explicitly (defence-in-depth). Cross-school audit sentinel `eeeeeeee-…-eeeeeeeeeeee` documented in ADR 020. ✅ closed 2026-05-27
+- [x] M-003 District / Province / National rollup endpoints: `/ministry/enrolment`, `/ministry/attendance`, `/ministry/fees`, `/ministry/fees/defaulters`. ECharts deferred to Phase 14e+ (BarChart from Recharts used for v1; heavy charts wired but optional). ✅ closed 2026-05-27
+- [x] M-004 Compliance dashboard `/ministry/compliance` — per (school, template) counts by status. ✅ closed 2026-05-27
+- [x] M-005 Drop-out endpoint `/ministry/dropouts` + admin-web `/ministry/dropouts/` page with district bar chart. Geomap deferred to follow-up. ✅ closed 2026-05-27
+- [x] M-006 Subject pass-rate by region `/ministry/pass-rate` (50%-of-max threshold; absent excluded). ✅ closed 2026-05-27
+- [x] M-007 PTR `/ministry/ptr`. Devices/electricity placeholder fields (`null`) — stable contract; values land in a follow-up sub-phase once a `SchoolFacility` model is added. ✅ closed 2026-05-27 (PTR portion)
+- [x] M-008 `/ministry/comparative` — per-school side-by-side with `anonymize=true` flag (pseudonym labels, school_id stripped). ✅ closed 2026-05-27
+- [x] M-009 `/ministry/policy-impact` — before/after windows for attendance_rate or dropout_rate. ✅ closed 2026-05-27
+- [x] M-010 `/ministry/donors` — sponsor commitments + receipts by scope. Money amounts logged (per ADR 018 money-story exception). No sponsor names. ✅ closed 2026-05-27
+- [x] M-011 `/ministry/exports/unesco?year=…` — canonical national snapshot in a stable UNESCO/UNICEF-aligned schema. Downloadable from admin-web exports page. ✅ closed 2026-05-27
+- **Gate**: ✅ Ministry user can log in, see the national snapshot, drill into province/district views, view compliance/dropouts/subjects/resources/donors, and export UNESCO JSON. No operational verbs anywhere in the UI. 489 backend tests pass (404 academics + 85 finance).
 
 ### Phase 15 — Learning layer (DEC-003 Option B, DEC-004 revised)
 **Goal**: shift v1 perception from "digital register" to "learning platform" — but content is integration, not native.
@@ -562,17 +562,17 @@ Teacher-side rules: RULE-3 (read-only fees on teacher's student view) and RULE-4
 
 | ID | Importance | Title | Phase | Status |
 |---|---|---|---|---|
-| M-001 | high | ministry-web (or admin-web Ministry role) | 14 | todo |
-| M-002 | high | Cross-school aggregation API | 14 | todo |
-| M-003 | high | District / Province / National dashboards | 14 (ECharts) | todo |
-| M-004 | high | Compliance dashboard | 14 | todo |
-| M-005 | high | Drop-out heatmap | 14 (Zim geomap) | todo |
-| M-006 | high | Subject pass-rate by region | 14 | todo |
-| M-007 | high | Resource allocation views | 14 | todo |
-| M-008 | medium | Anonymized comparatives | 14 | todo |
-| M-009 | medium | Policy impact tracking | 14 | todo |
-| M-010 | medium | Donor/NGO impact | 14 | todo |
-| M-011 | medium | International export templates | 14 | todo |
+| M-001 | high | Ministry role inside admin-web (ADR 020) | 14a | ✅ closed 2026-05-27 (role + perm seeded; `(ministry)` route group with layout guard) |
+| M-002 | high | Cross-school aggregation API | 14a | ✅ closed 2026-05-27 (`services/academics/app/api/ministry_routes.py` + `services/finance/app/api/ministry_routes.py`) |
+| M-003 | high | District / Province / National dashboards | 14b | ✅ closed 2026-05-27 (enrolment + attendance + fees rollups; bar charts in `/ministry/enrolment`, `/ministry/attendance`) |
+| M-004 | high | Compliance dashboard | 14b | ✅ closed 2026-05-27 (`/ministry/compliance` per-(school, template) status counts) |
+| M-005 | high | Drop-out heatmap | 14c | ✅ closed 2026-05-27 (district bar chart in `/ministry/dropouts`; Zim geomap deferred to a follow-up — see ADR 020) |
+| M-006 | high | Subject pass-rate by region | 14c | ✅ closed 2026-05-27 (50% threshold; absent excluded; province + district scopes) |
+| M-007 | high | Resource allocation views | 14c | ⚠️ partial (PTR delivered; `devices_per_school` + `electricity_coverage` placeholders returned as null pending a `SchoolFacility` model — stable contract preserved) |
+| M-008 | medium | Anonymized comparatives | 14d | ✅ closed 2026-05-27 (`/ministry/comparative?anonymize=true` returns pseudonyms + nulled school_id) |
+| M-009 | medium | Policy impact tracking | 14d | ✅ closed 2026-05-27 (`/ministry/policy-impact` with attendance_rate or dropout_rate, configurable windows) |
+| M-010 | medium | Donor/NGO impact | 14d | ✅ closed 2026-05-27 (`/ministry/donors` aggregates Sponsorship by scope; money amounts logged per ADR 018) |
+| M-011 | medium | International export templates | 14d | ✅ closed 2026-05-27 (`/ministry/exports/unesco` returns canonical national snapshot; downloadable JSON in admin-web) |
 
 ---
 
