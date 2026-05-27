@@ -73,6 +73,37 @@ SERVICE_ROUTES = {
     "/api/v1/self-evaluations": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/class-teachers/co": ("ACADEMICS_SERVICE_URL", "academics"),
 
+    # Phase 13a — staff + HR + admissions + transfers (academics).
+    "/api/v1/staff": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/leave-requests": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/contracts": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/salary-slips": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/performance-reviews": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/admissions": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/transfers": ("ACADEMICS_SERVICE_URL", "academics"),
+
+    # Phase 13b — compliance + health records (academics).
+    "/api/v1/compliance": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/health-records": ("ACADEMICS_SERVICE_URL", "academics"),
+
+    # Phase 13c — operations / inventory / library / visitors (academics).
+    "/api/v1/expenses": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/vendor-payments": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/capital-projects": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/assets": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/library": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/visitors": ("ACADEMICS_SERVICE_URL", "academics"),
+
+    # Phase 13d — community (policies, sponsors, alumni).
+    "/api/v1/policies": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/sponsors": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/sponsorships": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/alumni": ("ACADEMICS_SERVICE_URL", "academics"),
+
+    # Phase 13e — boarding + multi-campus.
+    "/api/v1/boarding": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/campuses": ("ACADEMICS_SERVICE_URL", "academics"),
+
     # Phase 12d/e/f — parent-life surfaces (all in academics).
     "/api/v1/school-events": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/performance-opt-out": ("ACADEMICS_SERVICE_URL", "academics"),
@@ -278,6 +309,90 @@ RBAC_MAP = [
     ("POST", "/api/v1/self-evaluations", "authenticated"),
     # Co-teacher assignment — admin-only.
     ("POST", "/api/v1/class-teachers/co", "school:manage"),
+
+    # Phase 13a — staff + HR + admissions + transfers.
+    # Staff CRUD — admin only.
+    ("GET",  "/api/v1/staff", "school:manage"),
+    ("POST", "/api/v1/staff", "school:manage"),
+    ("POST", "/api/v1/staff/", "school:manage"),  # /{id}/terminate
+    # Leave: anyone authenticated can request + read own; admin lists all
+    # + decides.
+    ("GET",  "/api/v1/leave-requests", "authenticated"),
+    ("POST", "/api/v1/leave-requests", "authenticated"),
+    ("PUT",  "/api/v1/leave-requests/", "school:manage"),  # /{id}/decide
+    # Contracts — admin manages; users read own.
+    ("GET",  "/api/v1/contracts", "authenticated"),
+    ("POST", "/api/v1/contracts", "school:manage"),
+    # Salary slips — admin issues; users read own.
+    ("GET",  "/api/v1/salary-slips", "authenticated"),
+    ("POST", "/api/v1/salary-slips", "school:manage"),
+    # Performance reviews — admin/HoD writes; users read own.
+    ("GET",  "/api/v1/performance-reviews", "authenticated"),
+    ("POST", "/api/v1/performance-reviews", "school:manage"),
+    # Admissions — admin manages; submissions can come from the admin UI
+    # (the parent-facing application form is Phase 14 follow-up).
+    ("GET",  "/api/v1/admissions", "school:manage"),
+    ("POST", "/api/v1/admissions", "school:manage"),
+    ("PUT",  "/api/v1/admissions/", "school:manage"),  # /{id}/decide
+    # Transfers — admin only.
+    ("GET",  "/api/v1/transfers", "school:manage"),
+    ("POST", "/api/v1/transfers", "school:manage"),
+
+    # Phase 13b — compliance + health records.
+    # Compliance templates + submissions — admin only.
+    ("GET",  "/api/v1/compliance/templates", "school:manage"),
+    ("POST", "/api/v1/compliance/templates", "school:manage"),
+    ("GET",  "/api/v1/compliance/submissions", "school:manage"),
+    ("POST", "/api/v1/compliance/submissions", "school:manage"),
+    ("PUT",  "/api/v1/compliance/submissions/", "school:manage"),
+    ("GET",  "/api/v1/compliance/discipline-rollup", "school:manage"),
+    ("GET",  "/api/v1/compliance/grievance-rollup", "school:manage"),
+    # Health records — admin OR nurse (route layer also checks).
+    ("GET",  "/api/v1/health-records/", "school:manage"),
+    ("PUT",  "/api/v1/health-records/", "school:manage"),
+
+    # Phase 13c — operations / inventory / library / visitors.
+    # All admin-only.
+    ("GET",  "/api/v1/expenses", "school:manage"),
+    ("POST", "/api/v1/expenses", "school:manage"),
+    ("GET",  "/api/v1/vendor-payments", "school:manage"),
+    ("POST", "/api/v1/vendor-payments", "school:manage"),
+    ("GET",  "/api/v1/capital-projects", "school:manage"),
+    ("POST", "/api/v1/capital-projects", "school:manage"),
+    ("PUT",  "/api/v1/capital-projects/", "school:manage"),
+    ("GET",  "/api/v1/assets", "school:manage"),
+    ("POST", "/api/v1/assets", "school:manage"),
+    ("POST", "/api/v1/assets/", "school:manage"),  # /{id}/movements
+    # Library — admin manages catalog; staff users can read.
+    ("GET",  "/api/v1/library/books", "authenticated"),
+    ("POST", "/api/v1/library/books", "school:manage"),
+    ("POST", "/api/v1/library/loans", "school:manage"),
+    ("POST", "/api/v1/library/loans/", "school:manage"),
+    # Visitors — admin/reception manages.
+    ("GET",  "/api/v1/visitors", "school:manage"),
+    ("POST", "/api/v1/visitors", "school:manage"),
+    ("POST", "/api/v1/visitors/", "school:manage"),
+
+    # Phase 13d — community.
+    # Policies — read open (parents see published ones); write admin.
+    ("GET",  "/api/v1/policies", "authenticated"),
+    ("POST", "/api/v1/policies", "school:manage"),
+    # Sponsors + sponsorships — admin only.
+    ("GET",  "/api/v1/sponsors", "school:manage"),
+    ("POST", "/api/v1/sponsors", "school:manage"),
+    ("GET",  "/api/v1/sponsorships", "school:manage"),
+    ("POST", "/api/v1/sponsorships", "school:manage"),
+    ("PUT",  "/api/v1/sponsorships/", "school:manage"),
+    # Alumni — admin only.
+    ("GET",  "/api/v1/alumni", "school:manage"),
+    ("POST", "/api/v1/alumni", "school:manage"),
+    ("PUT",  "/api/v1/alumni/", "school:manage"),
+
+    # Phase 13e — boarding + multi-campus. Admin only.
+    ("GET",  "/api/v1/boarding/", "school:manage"),
+    ("POST", "/api/v1/boarding/", "school:manage"),
+    ("GET",  "/api/v1/campuses", "authenticated"),
+    ("POST", "/api/v1/campuses", "school:manage"),
 
     # Phase 12d/e/f — parent-life surfaces.
     # School events — anyone authenticated reads; admin writes.

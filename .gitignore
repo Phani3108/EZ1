@@ -54,3 +54,8 @@ node_modules/
 *.db-shm
 *.db-wal
 test_*.db*
+
+# Test SQLite artifacts
+test_*.db
+test_*.db-shm
+test_*.db-wal

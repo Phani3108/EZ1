@@ -125,6 +125,21 @@ from app.api.org_routes import router as _org_router  # noqa: E402
 # sibling discount).
 from app.api.parent_life_routes import router as _parent_life_router  # noqa: E402
 
+# Phase 13a: staff + HR + admissions + transfers.
+from app.api.staff_routes import router as _staff_router  # noqa: E402
+
+# Phase 13b: compliance reports + rollups + health records.
+from app.api.compliance_routes import router as _compliance_router  # noqa: E402
+
+# Phase 13c: finance/inventory/library/visitor admin surface.
+from app.api.ops_routes import router as _ops_router  # noqa: E402
+
+# Phase 13d: community surface (policies, sponsors, alumni).
+from app.api.community_routes import router as _community_router  # noqa: E402
+
+# Phase 13e: boarding + multi-campus.
+from app.api.special_routes import router as _special_router  # noqa: E402
+
 app.include_router(_school_router, prefix="/api/v1")
 app.include_router(_student_router, prefix="/api/v1")
 app.include_router(_bulk_router, prefix="/api/v1")
@@ -138,3 +153,8 @@ app.include_router(_planning_router, prefix="/api/v1")
 app.include_router(_student_life_router, prefix="/api/v1")
 app.include_router(_org_router, prefix="/api/v1")
 app.include_router(_parent_life_router, prefix="/api/v1")
+app.include_router(_staff_router, prefix="/api/v1")
+app.include_router(_compliance_router, prefix="/api/v1")
+app.include_router(_ops_router, prefix="/api/v1")
+app.include_router(_community_router, prefix="/api/v1")
+app.include_router(_special_router, prefix="/api/v1")

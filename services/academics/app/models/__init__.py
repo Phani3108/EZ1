@@ -72,6 +72,41 @@ from app.models.parent_life import (  # Phase 12d/e/f
     GalleryPhoto,
     SiblingDiscountRule,
 )
+from app.models.staff import (  # Phase 13a
+    NonTeachingStaff,
+    LeaveRequest,
+    EmploymentContract,
+    SalarySlip,
+    PerformanceReview,
+    AdmissionApplication,
+    StudentTransfer,
+)
+from app.models.compliance import (  # Phase 13b
+    ComplianceReportTemplate,
+    ComplianceReportSubmission,
+    HealthRecord,
+)
+from app.models.ops import (  # Phase 13c
+    Expense,
+    VendorPayment,
+    CapitalProject,
+    Asset,
+    AssetMovement,
+    LibraryBook,
+    BookLoan,
+    Visitor,
+)
+from app.models.community import (  # Phase 13d
+    PolicyDocument,
+    Sponsor,
+    Sponsorship,
+    Alumnus,
+)
+from app.models.special import (  # Phase 13e
+    BoardingRoom,
+    BoardingAssignment,
+    Campus,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -134,4 +169,34 @@ __all__ = [
     "NewsletterPost",
     "GalleryPhoto",
     "SiblingDiscountRule",
+    # Phase 13a
+    "NonTeachingStaff",
+    "LeaveRequest",
+    "EmploymentContract",
+    "SalarySlip",
+    "PerformanceReview",
+    "AdmissionApplication",
+    "StudentTransfer",
+    # Phase 13b
+    "ComplianceReportTemplate",
+    "ComplianceReportSubmission",
+    "HealthRecord",
+    # Phase 13c
+    "Expense",
+    "VendorPayment",
+    "CapitalProject",
+    "Asset",
+    "AssetMovement",
+    "LibraryBook",
+    "BookLoan",
+    "Visitor",
+    # Phase 13d
+    "PolicyDocument",
+    "Sponsor",
+    "Sponsorship",
+    "Alumnus",
+    # Phase 13e
+    "BoardingRoom",
+    "BoardingAssignment",
+    "Campus",
 ]

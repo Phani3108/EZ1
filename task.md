@@ -300,41 +300,46 @@ PH2-1 produced an extended design (see `docs/decisions/006-addendum-module-call-
 
 - **Gate per sub-phase**: same as Phase 11.
 
-### Phase 13 — School admin features
+### Phase 13 — School admin features (closed 2026-05-27)
 **Goal**: close the principal's operational surface.
 
-**Phase 13a — People & roles**
-- [ ] A-001 Non-teaching staff management (admin-only per RULE-5).
-- [ ] A-002 HR: leave, contracts, salary slips, payroll prep, performance reviews.
-- [ ] A-003 Admissions workflow (application → screening → enrollment).
-- [ ] A-004 Transfers in/out (transcript generation).
+**Phase 13a — People & roles** (closed 2026-05-27)
+- [x] A-001 (closed 2026-05-27) — `NonTeachingStaff` table (accountant / driver / security / cleaner / it_support / nurse / cook / librarian / groundskeeper / other). Active-only listing + soft terminate via `/staff/{id}/terminate`. Audit: role_category + code logged, names + contacts NEVER logged.
+- [x] A-002 (closed 2026-05-27) — Full HR: `LeaveRequest` (annual/sick/unpaid/etc., status open→approved/rejected/cancelled), `EmploymentContract` (role_title + salary BAND not amount + signed-PDF attachment), `SalarySlip` (period_year+month unique; integer cents; auto-computed net), `PerformanceReview` (rating + JSON criteria; summary text never audit-logged). Staff see only their own; admin sees all.
+- [x] A-003 (closed 2026-05-27) — `AdmissionApplication` status flow submitted→in_review→accepted/rejected→enrolled. Decide endpoint requires student_id when enrolling.
+- [x] A-004 (closed 2026-05-27) — `StudentTransfer` (inbound/outbound + transcript attachment via T-008).
+- 12 backend tests in `test_staff.py`. Alembic 015.
 
-**Phase 13b — Compliance & feedback**
-- [ ] A-005 Ministry-format compliance report templates (Zimbabwe MoPSE formats).
-- [ ] A-006 Disciplinary actions log (school-level rollup of T-004).
-- [ ] A-007 Health records (allergies, emergency contacts, vaccinations — PIA-gated per RULE-10).
-- [ ] A-010 Parent feedback / complaint handling (admin-only per RULE-6).
+**Phase 13b — Compliance & feedback** (closed 2026-05-27)
+- [x] A-005 (closed 2026-05-27) — `ComplianceReportTemplate` (cadence: quarterly/termly/annual/adhoc; JSON schema) + `ComplianceReportSubmission` (unique by (school, template, period_label); status flow draft→submitted→accepted/rejected).
+- [x] A-006 (closed 2026-05-27) — `/compliance/discipline-rollup` aggregates `BehaviorIncident` (Phase 11e) by severity + category with incidents/resolved/open totals.
+- [x] A-007 (closed 2026-05-27) — `HealthRecord` (PIA-gated per RULE-10 / ADR 007). Reads + writes gated to admin/principal/nurse via route-layer check beyond gateway RBAC. **Body fields never audit-logged**; even READS are audit-logged because health data access is itself audit-worthy.
+- [x] A-010 — Already closed Phase 12e (Grievance model). Added `/compliance/grievance-rollup` here for admin counts.
+- 8 backend tests in `test_compliance.py`. Alembic 016.
 
-**Phase 13c — Finance, inventory, operations**
-- [ ] A-008 Financial dashboards beyond fees (expenses, vendor payments, capital projects).
-- [ ] A-009 Inventory / asset management.
-- [ ] A-011 Library management.
-- [ ] A-012 Transportation routing (driver mini-app + parent visibility from P-012).
-- [ ] A-013 Cafeteria / meal plans.
-- [ ] A-014 Visitor management.
+**Phase 13c — Finance, inventory, operations** (closed 2026-05-27)
+- [x] A-008 (closed 2026-05-27) — Operational finance separate from the fees-service ledger: `Expense` (category enum + total computation), `VendorPayment` (audit logs amount as money-move story), `CapitalProject` (budget vs spent, status flow + changed-field-name update audit).
+- [x] A-009 (closed 2026-05-27) — `Asset` (category enum, unique asset_tag, status: in_stock/assigned/maintenance/disposed/lost) + `AssetMovement` (append-only log; action enum). Move endpoint updates Asset.status atomically.
+- [x] A-011 (closed 2026-05-27) — `LibraryBook` + `BookLoan`: copies count check before issue (409 UNAVAILABLE if none), available_copies decrement/increment on issue/return. Status derived (active/overdue/returned).
+- [x] A-012 — Already closed Phase 12e (TransportBus + TransportPing).
+- [x] A-013 — Already closed Phase 12f (MealCreditAccount).
+- [x] A-014 (closed 2026-05-27) — `Visitor` sign-in log with active_only filter. Audit logs visitor_type + purpose_length only; name + phone NEVER logged.
+- 7 backend tests in `test_ops.py`. Alembic 017 (8-table batch).
 
-**Phase 13d — Communications & community**
-- [ ] A-015 Event calendar publishing (feeds P-010).
-- [ ] A-016 Newsletter publishing (feeds P-015).
-- [ ] A-017 Policy document repository.
-- [ ] A-019 Donor / sponsor tracking.
-- [ ] A-020 Alumni tracking.
+**Phase 13d — Communications & community** (closed 2026-05-27)
+- [x] A-015 — Already closed Phase 12d (SchoolEvent).
+- [x] A-016 — Already closed Phase 12f (NewsletterPost).
+- [x] A-017 (closed 2026-05-27) — `PolicyDocument` with versioning (unique `(school, code, version)`; bumping `version` to N supersedes the previous current version). Parent reads filter to visible + non-superseded only. Test verifies the supersession + visibility logic.
+- [x] A-019 (closed 2026-05-27) — `Sponsor` + `Sponsorship` (purpose enum, committed vs received cents, status flow). Update endpoint tracks changed-field names.
+- [x] A-020 (closed 2026-05-27) — `Alumnus` (unique per (school, student_id); graduation_year + current contact snapshots). Update auto-stamps `last_contacted_at`. Audit: graduation_year logged, names + emails NEVER logged.
+- 5 backend tests in `test_community.py`. Alembic 018.
 
-**Phase 13e — Special configurations**
-- [ ] A-018 Boarding / hostel management.
-- [ ] A-021 Multi-campus support (primary + secondary on different sites).
+**Phase 13e — Special configurations** (closed 2026-05-27)
+- [x] A-018 (closed 2026-05-27) — `BoardingRoom` (occupancy_kind: boys/girls/mixed/staff; capacity) + `BoardingAssignment` (append-only; `ended_on` null while active). Capacity check (409 ROOM_FULL when full); student-side check (409 ALREADY_ASSIGNED when student already has an active row). Ending an assignment frees the slot.
+- [x] A-021 (closed 2026-05-27) — `Campus` (multi-site support: primary / secondary / combined / annex / other). `is_primary` enforced single — creating a new primary auto-clears the previous one. Cross-table coupling stays soft (Student / Class / Asset / Visitor reference campus by name, not FK).
+- 5 backend tests in `test_special.py`. Alembic 019.
 
-- **Gate per sub-phase**: same as Phase 11.
+- **Gate**: ✅ closed in code. Academics 379 tests (was 342, +37). 5 new model files + 5 new routes files + 5 new migrations. Admin-web UI for these features is the Phase 13g follow-up (tracked separately).
 
 ### Phase 14 — Ministry layer (viewer + auditor only)
 **Goal**: aggregate dashboards for Ministry.
@@ -529,27 +534,27 @@ Teacher-side rules: RULE-3 (read-only fees on teacher's student view) and RULE-4
 
 | ID | Importance | Title | Sub-phase | Status |
 |---|---|---|---|---|
-| A-001 | high | Non-teaching staff (admin-only per RULE-5) | 13a | todo |
-| A-002 | high | HR | 13a | todo |
-| A-003 | high | Admissions workflow | 13a | todo |
-| A-004 | high | Transfers in/out | 13a | todo |
-| A-005 | high | Ministry compliance templates | 13b | todo |
-| A-006 | high | Disciplinary log rollup | 13b | todo |
-| A-007 | high | Health records (PIA-gated) | 13b | todo |
-| A-008 | high | Financial dashboards beyond fees | 13c | todo |
-| A-009 | high | Inventory / asset management | 13c | todo |
-| A-010 | high | Parent feedback handling (admin-only per RULE-6) | 13b | todo |
-| A-011 | medium | Library | 13c | todo |
-| A-012 | medium | Transportation routing | 13c | todo |
-| A-013 | medium | Cafeteria / meal plans | 13c | todo |
-| A-014 | medium | Visitor management | 13c | todo |
-| A-015 | medium | Event calendar publishing | 13d | todo |
-| A-016 | medium | Newsletter publishing | 13d | todo |
-| A-017 | medium | Policy repository | 13d | todo |
-| A-018 | medium | Boarding / hostel | 13e | todo |
-| A-019 | medium | Donor / sponsor tracking | 13d | todo |
-| A-020 | medium | Alumni tracking | 13d | todo |
-| A-021 | medium | Multi-campus | 13e | todo |
+| A-001 | high | Non-teaching staff (admin-only per RULE-5) | 13a | ✅ closed 2026-05-27 (role enum + terminate flow; audit omits PII) |
+| A-002 | high | HR | 13a | ✅ closed 2026-05-27 (leave + contracts + salary slips + perf reviews; band-not-amount audit) |
+| A-003 | high | Admissions workflow | 13a | ✅ closed 2026-05-27 (status flow with enrol-needs-student_id guard) |
+| A-004 | high | Transfers in/out | 13a | ✅ closed 2026-05-27 (transcript attachment via T-008) |
+| A-005 | high | Ministry compliance templates | 13b | ✅ closed 2026-05-27 (template + submission with draft→submitted→accepted flow) |
+| A-006 | high | Disciplinary log rollup | 13b | ✅ closed 2026-05-27 (/compliance/discipline-rollup aggregates Phase 11e BehaviorIncident) |
+| A-007 | high | Health records (PIA-gated) | 13b | ✅ closed 2026-05-27 (route-layer nurse/admin gate + body-never-logged audit invariant) |
+| A-008 | high | Financial dashboards beyond fees | 13c | ✅ closed 2026-05-27 (Expense + VendorPayment + CapitalProject) |
+| A-009 | high | Inventory / asset management | 13c | ✅ closed 2026-05-27 (Asset + AssetMovement append-only log) |
+| A-010 | high | Parent feedback handling (admin-only per RULE-6) | 13b | ✅ closed Phase 12e (Grievance model) + 13b /compliance/grievance-rollup endpoint |
+| A-011 | medium | Library | 13c | ✅ closed 2026-05-27 (LibraryBook + BookLoan with capacity check) |
+| A-012 | medium | Transportation routing | 13c | ✅ closed Phase 12e (TransportBus + TransportPing) |
+| A-013 | medium | Cafeteria / meal plans | 13c | ✅ closed Phase 12f (MealCreditAccount) |
+| A-014 | medium | Visitor management | 13c | ✅ closed 2026-05-27 (sign-in/sign-out; name+phone never logged) |
+| A-015 | medium | Event calendar publishing | 13d | ✅ closed Phase 12d (SchoolEvent) |
+| A-016 | medium | Newsletter publishing | 13d | ✅ closed Phase 12f (NewsletterPost) |
+| A-017 | medium | Policy repository | 13d | ✅ closed 2026-05-27 (PolicyDocument with versioning + visibility filter) |
+| A-018 | medium | Boarding / hostel | 13e | ✅ closed 2026-05-27 (BoardingRoom + BoardingAssignment with capacity + double-assign guards) |
+| A-019 | medium | Donor / sponsor tracking | 13d | ✅ closed 2026-05-27 (Sponsor + Sponsorship lifecycle) |
+| A-020 | medium | Alumni tracking | 13d | ✅ closed 2026-05-27 (Alumnus with auto-stamped last_contacted_at) |
+| A-021 | medium | Multi-campus | 13e | ✅ closed 2026-05-27 (Campus with single-primary enforcement) |
 
 ---
 
