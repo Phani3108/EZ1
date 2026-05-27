@@ -85,6 +85,41 @@ TEMPLATES = {
              "Books", "200.00", "USD"],
         ],
     },
+    # Phase 16 — Curriculum bulk import.
+    "curriculum": {
+        "headers": [
+            "subject_code", "unit_code", "unit_name", "unit_sequence",
+            "unit_grade_level", "topic_code", "topic_name",
+            "topic_sequence", "learning_outcomes", "parent_topic_code",
+        ],
+        "examples": [
+            ["MATH", "U-ALG", "Algebra", "1",
+             "Form 3", "T-QUAD", "Quadratics", "1",
+             "Solve quadratic equations using factorisation, "
+             "completing the square, and the quadratic formula.", ""],
+            ["MATH", "U-ALG", "Algebra", "1",
+             "Form 3", "T-QUAD-DISC", "Discriminant", "2",
+             "Use the discriminant to classify roots.", "T-QUAD"],
+        ],
+    },
+    "national-curriculum": {
+        "headers": [
+            "subject_code", "subject_name", "unit_code", "unit_name",
+            "unit_sequence", "unit_grade_level", "topic_code",
+            "topic_name", "topic_sequence", "learning_outcomes",
+            "parent_topic_code",
+        ],
+        "examples": [
+            ["ZIM-FRM1-MATH", "Form 1 Mathematics",
+             "U-NUM", "Numbers", "1", "Form 1",
+             "T-INT", "Integers", "1",
+             "Add, subtract, multiply and divide integers.", ""],
+            ["ZIM-FRM1-MATH", "Form 1 Mathematics",
+             "U-ALG", "Algebra", "2", "Form 1",
+             "T-LIN", "Linear Equations", "1",
+             "Solve linear equations in one variable.", ""],
+        ],
+    },
 }
 
 

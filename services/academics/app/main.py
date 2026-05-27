@@ -155,6 +155,18 @@ from app.api.onboarding_routes import router as _onboarding_router  # noqa: E402
 # Phase 15: CSV/Excel template downloads for the setup wizard.
 from app.api.templates_routes import router as _templates_router  # noqa: E402
 
+# Phase 16: school-local curriculum (Subject → Unit → Topic).
+from app.api.curriculum_routes import router as _curriculum_router  # noqa: E402
+
+# Phase 16: Ministry-side National Curriculum (ZIMSEC reference).
+from app.api.national_curriculum_routes import router as _national_curriculum_router  # noqa: E402
+
+# Phase 16: bulk CSV import for curriculum (school-local + Ministry).
+from app.api.bulk_curriculum import router as _bulk_curriculum_router  # noqa: E402
+
+# Phase 16b: Topic↔Resource cross-index endpoints.
+from app.api.curriculum_index_routes import router as _curriculum_index_router  # noqa: E402
+
 app.include_router(_school_router, prefix="/api/v1")
 app.include_router(_student_router, prefix="/api/v1")
 app.include_router(_bulk_router, prefix="/api/v1")
@@ -178,3 +190,7 @@ app.include_router(_drafts_router, prefix="/api/v1")
 app.include_router(_bulk_teachers_router, prefix="/api/v1")
 app.include_router(_onboarding_router, prefix="/api/v1")
 app.include_router(_templates_router, prefix="/api/v1")
+app.include_router(_curriculum_router, prefix="/api/v1")
+app.include_router(_national_curriculum_router, prefix="/api/v1")
+app.include_router(_bulk_curriculum_router, prefix="/api/v1")
+app.include_router(_curriculum_index_router, prefix="/api/v1")

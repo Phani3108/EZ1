@@ -93,6 +93,8 @@ class LessonPlan(Base):
     resources = Column(Text, nullable=True)
     scheduled_date = Column(Date, nullable=True)
     scheduled_period_number = Column(Integer, nullable=True)
+    # Phase 16b — Topic↔Resource cross-index. JSON array of Topic UUIDs.
+    topic_ids = Column(Text, nullable=True)
     created_by = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_utcnow,
@@ -129,6 +131,8 @@ class FormativeAssessment(Base):
     prompt = Column(Text, nullable=False)
     # Optional JSON payload: options for polls, question list for quizzes.
     payload = Column(Text, nullable=True)
+    # Phase 16b — Topic↔Resource cross-index.
+    topic_ids = Column(Text, nullable=True)
     created_by = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     closed_at = Column(DateTime(timezone=True), nullable=True)

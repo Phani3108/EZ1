@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, String, DateTime, Numeric, Boolean, Date,
+    Column, String, DateTime, Numeric, Boolean, Date, Text,
     ForeignKey, UniqueConstraint, Index, Enum as SAEnum,
 )
 from sqlalchemy.orm import relationship
@@ -45,6 +45,18 @@ class Assessment(Base):
     )
     date = Column(Date, nullable=False)
     max_marks = Column(Numeric(6, 2), nullable=False)
+    # Phase 16b — Topic↔Resource cross-index. JSON array of Topic UUIDs
+    # (as strings); stored as JSON text so SQLite + Postgres agree.
+    topic_ids = Column(Text, nullable=True)
+    # Phase 16c — assessment composition.
+    description = Column(Text, nullable=True)
+    instructions = Column(Text, nullable=True)
+    # JSON array of Question UUIDs (strings) — for assessments that
+    # auto-grade from the question bank.
+    question_ids = Column(Text, nullable=True)
+    # Optional reference to an `Attachment.id` in the communications
+    # service. String(36) — no FK across services.
+    exam_paper_attachment_id = Column(String(36), nullable=True)
     created_by = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_utcnow, onupdate=_utcnow, nullable=False)

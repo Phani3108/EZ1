@@ -115,6 +115,10 @@ class Homework(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=False)
     due_date = Column(Date, nullable=False)
+    # Phase 16b — Topic↔Resource cross-index. JSON array of Topic UUIDs.
+    topic_ids = Column(Text, nullable=True)
+    # Phase 16d — when this Homework was instantiated from a template.
+    template_source_id = Column(UUID_STR, nullable=True, index=True)
     assigned_by = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     archived_at = Column(DateTime(timezone=True), nullable=True)

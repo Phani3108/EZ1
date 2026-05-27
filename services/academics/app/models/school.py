@@ -161,6 +161,16 @@ class Subject(Base):
     name = Column(String(255), nullable=False)
     code = Column(String(50), nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Phase 16 — curriculum metadata.
+    # `grade_levels`: JSON array of strings, e.g. ["Form 1", "Form 2"].
+    # Stored as JSON text for portability across Postgres + SQLite tests.
+    grade_levels = Column(Text, nullable=True)
+    # `national_subject_id`: nullable pointer to a NationalSubject row.
+    # Set when the school adopted this subject from the Ministry's
+    # published ZIMSEC curriculum (vs. creating it locally). Stored as
+    # String(36) since NationalSubject lives in a separate logical
+    # tenant (no school_id) and we don't want a cross-tenant FK.
+    national_subject_id = Column(String(36), nullable=True, index=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 

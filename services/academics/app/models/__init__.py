@@ -112,6 +112,15 @@ from app.models.onboarding import (  # Phase 15
     ParentDraft,
     InviteRequest,
 )
+from app.models.curriculum import (  # Phase 16
+    Unit,
+    Topic,
+)
+from app.models.national_curriculum import (  # Phase 16
+    NationalSubject,
+    NationalUnit,
+    NationalTopic,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -208,4 +217,10 @@ __all__ = [
     "StudentDraft",
     "ParentDraft",
     "InviteRequest",
+    # Phase 16
+    "Unit",
+    "Topic",
+    "NationalSubject",
+    "NationalUnit",
+    "NationalTopic",
 ]
