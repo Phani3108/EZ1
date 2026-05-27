@@ -130,6 +130,10 @@ from app.models.content_templates import (  # Phase 16d
     HomeworkTemplate,
     LessonPlanTemplate,
 )
+from app.models.national_templates import (  # Phase 18b
+    NationalHomeworkTemplate,
+    NationalLessonPlanTemplate,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -237,4 +241,7 @@ __all__ = [
     "QuestionDraft",
     "HomeworkTemplate",
     "LessonPlanTemplate",
+    # National templates (Phase 18b)
+    "NationalHomeworkTemplate",
+    "NationalLessonPlanTemplate",
 ]

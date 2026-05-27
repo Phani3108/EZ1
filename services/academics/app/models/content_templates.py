@@ -68,6 +68,12 @@ class HomeworkTemplate(Base):
     is_published_school_wide = Column(Boolean, nullable=False, default=False)
     # Chained templates: a template can be derived from another.
     source_template_id = Column(UUID_STR, nullable=True, index=True)
+    # Phase 18b — provenance for cross-school adopted templates.
+    # When set, this row was cloned from the Ministry-distributed
+    # NationalHomeworkTemplate / NationalLessonPlanTemplate with the
+    # matching ID. Lets the UI show "Originally from Ministry" and
+    # de-duplicates repeat adopt calls (idempotency key with school_id).
+    source_national_template_id = Column(UUID_STR, nullable=True, index=True)
 
     maintained_by_user_id = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
@@ -105,6 +111,8 @@ class LessonPlanTemplate(Base):
 
     is_published_school_wide = Column(Boolean, nullable=False, default=False)
     source_template_id = Column(UUID_STR, nullable=True, index=True)
+    # Phase 18b — provenance for cross-school adopted templates.
+    source_national_template_id = Column(UUID_STR, nullable=True, index=True)
 
     maintained_by_user_id = Column(UUID_STR, nullable=False)
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)

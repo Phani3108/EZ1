@@ -173,6 +173,9 @@ from app.api.question_bank_routes import router as _question_bank_router  # noqa
 # Phase 16d: Homework + LessonPlan templates.
 from app.api.content_template_routes import router as _content_template_router  # noqa: E402
 
+# Phase 18b: Ministry-distributed (cross-school) templates.
+from app.api.national_templates_routes import router as _national_templates_router  # noqa: E402
+
 app.include_router(_school_router, prefix="/api/v1")
 app.include_router(_student_router, prefix="/api/v1")
 app.include_router(_bulk_router, prefix="/api/v1")
@@ -202,3 +205,4 @@ app.include_router(_bulk_curriculum_router, prefix="/api/v1")
 app.include_router(_curriculum_index_router, prefix="/api/v1")
 app.include_router(_question_bank_router, prefix="/api/v1")
 app.include_router(_content_template_router, prefix="/api/v1")
+app.include_router(_national_templates_router, prefix="/api/v1")

@@ -17,6 +17,61 @@ export interface SchoolSubject {
   is_active: boolean;
   grade_levels: string[];
   national_subject_id: string | null;
+  // Phase 17d — versioning fields exposed by GET /curriculum/subjects.
+  adopted_national_version: number | null;
+  national_current_version: number | null;
+  is_stale: boolean;
+}
+
+// Phase 18a — upgrade-subject preview payload.
+export interface UpgradeUnitToAdd {
+  national_unit_id: string;
+  code: string;
+  name: string;
+  grade_level: string | null;
+  sequence_order: number;
+}
+export interface UpgradeUnitToUpdate {
+  local_unit_id: string;
+  national_unit_id: string;
+  code: string;
+  changed_fields: string[];
+}
+export interface UpgradeTopicToAdd {
+  national_topic_id: string;
+  code: string;
+  name: string;
+  sequence_order: number;
+}
+export interface UpgradeTopicToUpdate {
+  local_topic_id: string;
+  national_topic_id: string;
+  code: string;
+  changed_fields: string[];
+}
+export interface UpgradePreview {
+  subject_id: string;
+  from_version: number;
+  to_version: number;
+  no_op: boolean;
+  units_to_add: UpgradeUnitToAdd[];
+  units_to_update: UpgradeUnitToUpdate[];
+  topics_to_add: UpgradeTopicToAdd[];
+  topics_to_update: UpgradeTopicToUpdate[];
+  local_custom_units_preserved_count: number;
+  local_custom_topics_preserved_count: number;
+  local_nationally_orphaned_units_count: number;
+  local_nationally_orphaned_topics_count: number;
+}
+export interface UpgradeResult {
+  subject_id: string;
+  from_version: number;
+  to_version: number;
+  units_added: number;
+  units_updated: number;
+  topics_added: number;
+  topics_updated: number;
+  no_op: boolean;
 }
 
 export interface SchoolUnit {
@@ -132,6 +187,14 @@ export const curriculumApi = {
       resource_id: string;
       topic_ids: string[];
     }>("/api/v1/curriculum/tag", body),
+
+  // Phase 17d / 18a — versioning + upgrade flow.
+  previewUpgrade: (school_subject_id: string) =>
+    api.get<UpgradePreview>("/api/v1/curriculum/upgrade-subject/preview", {
+      school_subject_id,
+    }),
+  upgradeSubject: (body: { school_subject_id: string }) =>
+    api.post<UpgradeResult>("/api/v1/curriculum/upgrade-subject", body),
 
   // Ministry-side reference (read-only for school users).
   listNationalSubjects: (params?: { published_only?: boolean; country?: string }) =>
@@ -321,4 +384,105 @@ export const templatesApi = {
       `/api/v1/lesson-plan-templates/${id}/instantiate`,
       body,
     ),
+};
+
+// ─── Phase 18b — Ministry-distributed (cross-school) templates ──
+
+export interface NationalTemplateRow {
+  id: string;
+  code: string;
+  title: string;
+  // homework
+  description?: string;
+  default_due_days?: number | null;
+  // lesson-plan
+  objectives?: string | null;
+  activities?: string | null;
+  resources?: string | null;
+  suggested_period_number?: number | null;
+  // common
+  subject_code: string | null;
+  topic_codes: string[];
+  grade_levels: string[];
+  published_at: string | null;
+  archived_at: string | null;
+  created_at: string | null;
+  // school-side enrichment
+  adopted_local_template_id?: string | null;
+}
+
+export interface AdoptResult {
+  local_template_id: string;
+  national_template_id: string;
+  idempotent: boolean;
+  topics_resolved: number;
+  topics_unresolved: number;
+  unresolved_topic_codes?: string[];
+  subject_resolved?: boolean;
+}
+
+export const nationalTemplatesApi = {
+  // ─── Ministry-side ──────────────────────────────────────
+  ministryListHomework: (include_archived = false) =>
+    api.get<NationalTemplateRow[]>(
+      "/api/v1/ministry/national-templates/homework",
+      include_archived ? { include_archived: "true" } : undefined,
+    ),
+  ministryListLessonPlan: (include_archived = false) =>
+    api.get<NationalTemplateRow[]>(
+      "/api/v1/ministry/national-templates/lesson-plan",
+      include_archived ? { include_archived: "true" } : undefined,
+    ),
+  ministryCreateHomework: (body: {
+    code: string;
+    title: string;
+    description: string;
+    subject_code?: string;
+    topic_codes?: string[];
+    grade_levels?: string[];
+    default_due_days?: number;
+  }) =>
+    api.post<NationalTemplateRow>(
+      "/api/v1/ministry/national-templates/homework", body,
+    ),
+  ministryCreateLessonPlan: (body: {
+    code: string;
+    title: string;
+    objectives?: string;
+    activities?: string;
+    resources?: string;
+    subject_code?: string;
+    topic_codes?: string[];
+    grade_levels?: string[];
+    suggested_period_number?: number;
+  }) =>
+    api.post<NationalTemplateRow>(
+      "/api/v1/ministry/national-templates/lesson-plan", body,
+    ),
+  ministryPublishHomework: (id: string) =>
+    api.post<NationalTemplateRow>(
+      `/api/v1/ministry/national-templates/homework/${id}/publish`,
+    ),
+  ministryPublishLessonPlan: (id: string) =>
+    api.post<NationalTemplateRow>(
+      `/api/v1/ministry/national-templates/lesson-plan/${id}/publish`,
+    ),
+  ministryArchiveHomework: (id: string) =>
+    api.post<NationalTemplateRow>(
+      `/api/v1/ministry/national-templates/homework/${id}/archive`,
+    ),
+  ministryArchiveLessonPlan: (id: string) =>
+    api.post<NationalTemplateRow>(
+      `/api/v1/ministry/national-templates/lesson-plan/${id}/archive`,
+    ),
+
+  // ─── School-side ────────────────────────────────────────
+  browseHomework: () =>
+    api.get<NationalTemplateRow[]>("/api/v1/national-templates/homework"),
+  browseLessonPlan: () =>
+    api.get<NationalTemplateRow[]>("/api/v1/national-templates/lesson-plan"),
+  adoptHomework: (id: string) =>
+    api.post<AdoptResult>(`/api/v1/national-templates/homework/${id}/adopt`),
+  adoptLessonPlan: (id: string) =>
+    api.post<AdoptResult>(`/api/v1/national-templates/lesson-plan/${id}/adopt`),
 };

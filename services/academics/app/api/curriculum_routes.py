@@ -644,6 +644,252 @@ class UpgradeSubjectBody(BaseModel):
     school_subject_id: uuid.UUID
 
 
+def _resolve_upgrade_targets(
+    db: Session, school_id: uuid.UUID, school_subject_id: uuid.UUID
+):
+    """Phase 18a — shared resolver used by both preview + commit.
+
+    Returns `(Subject, NationalSubject, from_version, to_version)` on
+    success or `(None, code, message, status)` on error so the caller
+    can early-return.
+    """
+    s = (
+        db.query(Subject)
+        .filter(Subject.id == school_subject_id,
+                Subject.school_id == school_id)
+        .first()
+    )
+    if not s:
+        return None, "SUBJECT_NOT_FOUND", "Subject not found.", 404
+    if not s.national_subject_id:
+        return None, "SUBJECT_NOT_ADOPTED", (
+            "Only nationally-adopted subjects can be upgraded."
+        ), 400
+    try:
+        nat_lookup_id = uuid.UUID(s.national_subject_id)
+        nat = (
+            db.query(NationalSubject)
+            .filter(NationalSubject.id == nat_lookup_id)
+            .first()
+        )
+    except (ValueError, TypeError):
+        nat = None
+    if not nat:
+        return None, "NATIONAL_SUBJECT_NOT_FOUND", (
+            "Source national subject no longer exists."
+        ), 404
+    if not nat.ministry_published_at:
+        return None, "NATIONAL_SUBJECT_NOT_PUBLISHED", (
+            "The source national subject is unpublished."
+        ), 400
+    from_version = int(s.adopted_national_version or 0)
+    to_version = int(nat.version or 1)
+    return (s, nat, from_version, to_version)
+
+
+@router.get("/curriculum/upgrade-subject/preview")
+def preview_upgrade_subject(
+    request: Request,
+    school_subject_id: uuid.UUID = Query(...),
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    school_id: uuid.UUID = Depends(get_school_id),
+):
+    """Phase 18a — read-only "what will change?" view of a curriculum
+    upgrade. Returns the same shape as `upgrade-subject` plus per-row
+    diff lists so the HoD can review before committing.
+
+    The endpoint NEVER mutates. Safe to call repeatedly; the audit row
+    is logged with counts only — no syllabus content reaches details.
+    """
+    resolved = _resolve_upgrade_targets(db, school_id, school_subject_id)
+    if resolved[0] is None:
+        _, code, msg, status = resolved
+        return _err(code, msg, request, status=status)
+    s, nat, from_version, to_version = resolved
+
+    if from_version >= to_version:
+        _audit(
+            db, request,
+            event_type="curriculum.subject.upgrade_previewed",
+            school_id=school_id,
+            actor=_actor(current_user),
+            target={"resource": "subject", "id": str(s.id),
+                    "school_id": str(school_id),
+                    "national_subject_id": str(nat.id)},
+            details={
+                "from_version": from_version,
+                "to_version": to_version,
+                "no_op": True,
+            },
+        )
+        db.commit()
+        return _ok({
+            "subject_id": str(s.id),
+            "from_version": from_version,
+            "to_version": to_version,
+            "no_op": True,
+            "units_to_add": [],
+            "units_to_update": [],
+            "topics_to_add": [],
+            "topics_to_update": [],
+            "local_custom_units_preserved_count": 0,
+            "local_custom_topics_preserved_count": 0,
+            "local_nationally_orphaned_units_count": 0,
+            "local_nationally_orphaned_topics_count": 0,
+        }, request)
+
+    # Build local maps for upsert lookups.
+    local_units = (
+        db.query(Unit)
+        .filter(Unit.school_id == school_id, Unit.subject_id == s.id)
+        .all()
+    )
+    local_unit_by_natid: dict[str, Unit] = {
+        u.national_unit_id: u for u in local_units if u.national_unit_id
+    }
+    local_custom_units = [u for u in local_units if not u.national_unit_id]
+
+    local_topics = (
+        db.query(Topic)
+        .filter(Topic.school_id == school_id, Topic.subject_id == s.id)
+        .all()
+    )
+    local_topic_by_natid: dict[str, Topic] = {
+        t.national_topic_id: t for t in local_topics if t.national_topic_id
+    }
+    local_custom_topics = [t for t in local_topics if not t.national_topic_id]
+
+    nat_units = (
+        db.query(NationalUnit)
+        .filter(NationalUnit.national_subject_id == nat.id)
+        .order_by(NationalUnit.sequence_order.asc())
+        .all()
+    )
+
+    units_to_add: list[dict] = []
+    units_to_update: list[dict] = []
+    seen_local_unit_ids: set = set()
+
+    for nu in nat_units:
+        existing = local_unit_by_natid.get(str(nu.id))
+        if existing:
+            seen_local_unit_ids.add(existing.id)
+            changes: list[str] = []
+            if existing.name != nu.name:
+                changes.append("name")
+            if existing.sequence_order != int(nu.sequence_order or 0):
+                changes.append("sequence_order")
+            if existing.grade_level != nu.grade_level:
+                changes.append("grade_level")
+            if existing.description != nu.description:
+                changes.append("description")
+            if changes:
+                units_to_update.append({
+                    "local_unit_id": str(existing.id),
+                    "national_unit_id": str(nu.id),
+                    "code": nu.code,
+                    "changed_fields": changes,
+                })
+        else:
+            units_to_add.append({
+                "national_unit_id": str(nu.id),
+                "code": nu.code,
+                "name": nu.name,
+                "grade_level": nu.grade_level,
+                "sequence_order": int(nu.sequence_order or 0),
+            })
+
+    # Local national-linked units whose national counterpart no longer
+    # exists (preserved by the upgrade, but worth flagging to HoD).
+    nat_unit_ids = {str(nu.id) for nu in nat_units}
+    local_orphaned_units = [
+        u for u in local_units
+        if u.national_unit_id and u.national_unit_id not in nat_unit_ids
+    ]
+
+    nat_topic_rows = (
+        db.query(NationalTopic)
+        .join(NationalUnit, NationalUnit.id == NationalTopic.national_unit_id)
+        .filter(NationalUnit.national_subject_id == nat.id)
+        .order_by(NationalTopic.sequence_order.asc())
+        .all()
+    )
+
+    topics_to_add: list[dict] = []
+    topics_to_update: list[dict] = []
+    nat_topic_ids = {str(nt.id) for nt in nat_topic_rows}
+
+    for nt in nat_topic_rows:
+        existing = local_topic_by_natid.get(str(nt.id))
+        if existing:
+            changes: list[str] = []
+            if existing.name != nt.name:
+                changes.append("name")
+            if existing.sequence_order != int(nt.sequence_order or 0):
+                changes.append("sequence_order")
+            if existing.learning_outcomes != nt.learning_outcomes:
+                changes.append("learning_outcomes")
+            # Unit re-parent detection: requires looking at the
+            # corresponding national_unit_id local unit, which may be
+            # a new unit-to-add. Skip the rare reparent case in
+            # preview — `upgrade` itself handles it.
+            if changes:
+                topics_to_update.append({
+                    "local_topic_id": str(existing.id),
+                    "national_topic_id": str(nt.id),
+                    "code": nt.code,
+                    "changed_fields": changes,
+                })
+        else:
+            topics_to_add.append({
+                "national_topic_id": str(nt.id),
+                "code": nt.code,
+                "name": nt.name,
+                "sequence_order": int(nt.sequence_order or 0),
+            })
+
+    local_orphaned_topics = [
+        t for t in local_topics
+        if t.national_topic_id and t.national_topic_id not in nat_topic_ids
+    ]
+
+    _audit(
+        db, request,
+        event_type="curriculum.subject.upgrade_previewed",
+        school_id=school_id,
+        actor=_actor(current_user),
+        target={"resource": "subject", "id": str(s.id),
+                "school_id": str(school_id),
+                "national_subject_id": str(nat.id)},
+        details={
+            "from_version": from_version,
+            "to_version": to_version,
+            "units_to_add_count": len(units_to_add),
+            "units_to_update_count": len(units_to_update),
+            "topics_to_add_count": len(topics_to_add),
+            "topics_to_update_count": len(topics_to_update),
+            "local_custom_units_preserved_count": len(local_custom_units),
+            "local_custom_topics_preserved_count": len(local_custom_topics),
+        },
+    )
+    db.commit()
+    return _ok({
+        "subject_id": str(s.id),
+        "from_version": from_version,
+        "to_version": to_version,
+        "no_op": False,
+        "units_to_add": units_to_add,
+        "units_to_update": units_to_update,
+        "topics_to_add": topics_to_add,
+        "topics_to_update": topics_to_update,
+        "local_custom_units_preserved_count": len(local_custom_units),
+        "local_custom_topics_preserved_count": len(local_custom_topics),
+        "local_nationally_orphaned_units_count": len(local_orphaned_units),
+        "local_nationally_orphaned_topics_count": len(local_orphaned_topics),
+    }, request)
+
+
 @router.post("/curriculum/upgrade-subject")
 def upgrade_subject(
     body: UpgradeSubjectBody,

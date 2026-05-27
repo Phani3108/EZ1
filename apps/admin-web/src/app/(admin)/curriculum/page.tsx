@@ -14,7 +14,7 @@ import {
   type SchoolSubject,
   type CurriculumTree,
 } from "@/lib/curriculum-api";
-import { Card, CardHeader, CardTitle, CardContent, Button, Alert, AlertTitle, AlertDescription } from "@eduzim/ui";
+import { Card, CardHeader, CardTitle, CardContent, Button, Alert, AlertTitle, AlertDescription, Badge } from "@eduzim/ui";
 
 export default function CurriculumOverviewPage() {
   const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
@@ -96,16 +96,52 @@ export default function CurriculumOverviewPage() {
                     : "text-muted-foreground hover:bg-muted hover:text-foreground")
                 }
               >
-                <div>{s.name}</div>
+                <div className="flex items-center gap-2">
+                  <span>{s.name}</span>
+                  {s.is_stale && (
+                    <Badge variant="outline" className="text-[10px] border-amber-500 text-amber-700">
+                      stale
+                    </Badge>
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground">
                   {s.code}
-                  {s.national_subject_id && " · ZIMSEC"}
+                  {s.national_subject_id && (
+                    <>
+                      {" · ZIMSEC v"}{s.adopted_national_version ?? "?"}
+                      {s.is_stale && s.national_current_version != null && (
+                        <> (current v{s.national_current_version})</>
+                      )}
+                    </>
+                  )}
                 </div>
               </button>
             ))}
           </aside>
 
           <div className="min-w-0 space-y-4">
+            {activeSubjectId && (() => {
+              const active = subjects.find((s) => s.id === activeSubjectId);
+              if (!active || !active.is_stale) return null;
+              return (
+                <Alert>
+                  <AlertTitle>
+                    A newer ZIMSEC version (v{active.national_current_version}) is available
+                  </AlertTitle>
+                  <AlertDescription className="flex items-center justify-between gap-3">
+                    <span>
+                      You adopted v{active.adopted_national_version}. Review what the upgrade
+                      will change before pulling it in. Custom topics are always preserved.
+                    </span>
+                    <Button>
+                      <Link href={`/curriculum/${active.id}/upgrade-preview`}>
+                        Review upgrade
+                      </Link>
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              );
+            })()}
             {!tree ? (
               <div className="h-64 animate-pulse rounded bg-muted" />
             ) : tree.units.length === 0 ? (

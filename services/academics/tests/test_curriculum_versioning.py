@@ -284,6 +284,174 @@ class TestUpgrade:
         assert up.json()["error"]["code"] == "SUBJECT_NOT_ADOPTED"
 
 
+class TestUpgradePreview:
+    """Phase 18a — `GET /curriculum/upgrade-subject/preview` returns the
+    diff WITHOUT mutating, so the HoD can review before clicking
+    upgrade."""
+
+    def test_preview_returns_pending_changes_for_stale_subject(
+        self, client, engine_and_session
+    ):
+        _, SL = engine_and_session
+        nat_id, u1 = _seed_and_publish_national(client)
+        r = client.post(
+            "/api/v1/curriculum/adopt-subject",
+            headers=_admin_headers(),
+            json={"national_subject_id": nat_id},
+        )
+        local_id = r.json()["data"]["subject"]["id"]
+        client.post(
+            "/api/v1/ministry/national-curriculum/topics",
+            headers=_ops_headers(),
+            json={"national_unit_id": u1, "name": "Fractions",
+                  "code": "T-FRAC", "sequence_order": 2,
+                  "learning_outcomes": "Add fractions."},
+        )
+        client.post(
+            f"/api/v1/ministry/national-curriculum/subjects/{nat_id}/republish",
+            headers=_ops_headers(),
+        )
+
+        preview = client.get(
+            f"/api/v1/curriculum/upgrade-subject/preview?school_subject_id={local_id}",
+            headers=_admin_headers(),
+        )
+        assert preview.status_code == 200, preview.text
+        d = preview.json()["data"]
+        assert d["no_op"] is False
+        assert d["from_version"] == 1
+        assert d["to_version"] == 2
+        assert len(d["topics_to_add"]) == 1
+        assert d["topics_to_add"][0]["code"] == "T-FRAC"
+        assert d["topics_to_add"][0]["name"] == "Fractions"
+        assert d["units_to_add"] == []
+        assert d["topics_to_update"] == []
+
+        # Tree is UNCHANGED after preview — proves no mutation.
+        tree = client.get(
+            f"/api/v1/curriculum/tree?subject_id={local_id}",
+            headers=_admin_headers(),
+        ).json()["data"]
+        codes = {t["code"] for u in tree["units"] for t in u["topics"]}
+        assert "T-FRAC" not in codes
+
+    def test_preview_no_op_when_already_current(self, client):
+        nat_id, _ = _seed_and_publish_national(client)
+        r = client.post(
+            "/api/v1/curriculum/adopt-subject",
+            headers=_admin_headers(),
+            json={"national_subject_id": nat_id},
+        )
+        local_id = r.json()["data"]["subject"]["id"]
+        preview = client.get(
+            f"/api/v1/curriculum/upgrade-subject/preview?school_subject_id={local_id}",
+            headers=_admin_headers(),
+        )
+        d = preview.json()["data"]
+        assert d["no_op"] is True
+        assert d["topics_to_add"] == []
+        assert d["units_to_add"] == []
+
+    def test_preview_reports_custom_topics_preserved_count(
+        self, client, engine_and_session
+    ):
+        _, SL = engine_and_session
+        nat_id, u1 = _seed_and_publish_national(client)
+        r = client.post(
+            "/api/v1/curriculum/adopt-subject",
+            headers=_admin_headers(),
+            json={"national_subject_id": nat_id},
+        )
+        local_id = r.json()["data"]["subject"]["id"]
+        tree = client.get(
+            f"/api/v1/curriculum/tree?subject_id={local_id}",
+            headers=_admin_headers(),
+        ).json()["data"]
+        local_unit_id = tree["units"][0]["id"]
+        client.post(
+            "/api/v1/curriculum/topics",
+            headers=_admin_headers(),
+            json={"unit_id": local_unit_id, "name": "Custom",
+                  "code": "T-LOCAL", "sequence_order": 99},
+        )
+        client.post(
+            "/api/v1/ministry/national-curriculum/topics",
+            headers=_ops_headers(),
+            json={"national_unit_id": u1, "name": "Decimals",
+                  "code": "T-DEC", "sequence_order": 3},
+        )
+        client.post(
+            f"/api/v1/ministry/national-curriculum/subjects/{nat_id}/republish",
+            headers=_ops_headers(),
+        )
+        preview = client.get(
+            f"/api/v1/curriculum/upgrade-subject/preview?school_subject_id={local_id}",
+            headers=_admin_headers(),
+        ).json()["data"]
+        assert preview["local_custom_topics_preserved_count"] == 1
+
+    def test_preview_rejects_non_adopted(self, client):
+        s = client.post(
+            "/api/v1/curriculum/subjects",
+            headers=_admin_headers(),
+            json={"name": "Custom", "code": "CUST"},
+        ).json()["data"]
+        preview = client.get(
+            f"/api/v1/curriculum/upgrade-subject/preview?school_subject_id={s['id']}",
+            headers=_admin_headers(),
+        )
+        assert preview.status_code == 400
+        assert preview.json()["error"]["code"] == "SUBJECT_NOT_ADOPTED"
+
+    def test_preview_audit_carries_counts_not_names(
+        self, client, engine_and_session
+    ):
+        _, SL = engine_and_session
+        nat_id, u1 = _seed_and_publish_national(client)
+        client.post(
+            "/api/v1/curriculum/adopt-subject",
+            headers=_admin_headers(),
+            json={"national_subject_id": nat_id},
+        )
+        local_id = client.get(
+            "/api/v1/curriculum/subjects", headers=_admin_headers(),
+        ).json()["data"][0]["id"]
+        client.post(
+            "/api/v1/ministry/national-curriculum/topics",
+            headers=_ops_headers(),
+            json={"national_unit_id": u1, "name": "Secret Topic",
+                  "code": "T-SEC", "sequence_order": 2},
+        )
+        client.post(
+            f"/api/v1/ministry/national-curriculum/subjects/{nat_id}/republish",
+            headers=_ops_headers(),
+        )
+        client.get(
+            f"/api/v1/curriculum/upgrade-subject/preview?school_subject_id={local_id}",
+            headers=_admin_headers(),
+        )
+        from app.models.audit import AuditLog
+        s = SL()
+        try:
+            row = (
+                s.query(AuditLog)
+                .filter(AuditLog.event_type ==
+                        "curriculum.subject.upgrade_previewed")
+                .first()
+            )
+            assert row is not None
+            blob = _json.dumps({"target": row.target,
+                                "details": row.details or "{}"})
+            assert "from_version" in blob
+            assert "to_version" in blob
+            assert "topics_to_add_count" in blob
+            # NO names, NO codes.
+            assert "Secret Topic" not in blob
+            assert "T-SEC" not in blob
+        finally:
+            s.close()
+
+
 class TestAuditVersioning:
     def test_upgrade_audit_includes_version_delta(self, client, engine_and_session):
         _, SL = engine_and_session

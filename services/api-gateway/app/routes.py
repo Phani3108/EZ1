@@ -138,6 +138,9 @@ SERVICE_ROUTES = {
     "/api/v1/ministry/national-curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/ministry/bulk/national-curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/bulk/curriculum": ("ACADEMICS_SERVICE_URL", "academics"),
+    # Phase 18b — cross-school Ministry-distributed templates.
+    "/api/v1/ministry/national-templates": ("ACADEMICS_SERVICE_URL", "academics"),
+    "/api/v1/national-templates": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/questions": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/question-drafts": ("ACADEMICS_SERVICE_URL", "academics"),
     "/api/v1/homework-templates": ("ACADEMICS_SERVICE_URL", "academics"),
@@ -515,6 +518,9 @@ RBAC_MAP = [
     ("POST",   "/api/v1/curriculum/adopt-subject", "school:manage"),
     ("POST",   "/api/v1/curriculum/tag", "authenticated"),
     ("POST",   "/api/v1/bulk/curriculum", "school:manage"),
+    # Phase 17d / 18a — curriculum versioning + upgrade flow.
+    ("GET",    "/api/v1/curriculum/upgrade-subject/preview", "school:manage"),
+    ("POST",   "/api/v1/curriculum/upgrade-subject", "school:manage"),
 
     # Ministry-side National Curriculum.
     # Reads open to ministry:read OR school:manage (SchoolAdmin browses
@@ -523,6 +529,15 @@ RBAC_MAP = [
     ("GET",    "/api/v1/ministry/national-curriculum", "authenticated"),
     ("POST",   "/api/v1/ministry/national-curriculum/", "school:create"),
     ("POST",   "/api/v1/ministry/bulk/national-curriculum", "school:create"),
+
+    # Phase 18b — Ministry-distributed templates.
+    # Reads on the school-side surface gated `school:manage` so a HoD
+    # can browse the catalog. Writes on the Ministry side gated
+    # `school:create` (Provisioner / EduZimOps / Ministry).
+    ("GET",    "/api/v1/ministry/national-templates", "authenticated"),
+    ("POST",   "/api/v1/ministry/national-templates/", "school:create"),
+    ("GET",    "/api/v1/national-templates", "school:manage"),
+    ("POST",   "/api/v1/national-templates/", "school:manage"),
 
     # Question Bank.
     ("GET",    "/api/v1/questions", "authenticated"),

@@ -663,13 +663,40 @@ EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activat
 
 **Gate**: ✅ A HoD can publish a homework template school-wide and every teacher's instance pulls the full attachment bundle (no re-uploads). Image attachments in the announcement feed render via 256×256 server-side JPEGs on mobile (Pillow). The Ministry can republish a ZIMSEC subject and schools see an `is_stale` indicator; one-click upgrade pulls new units/topics while preserving local customisations. Backend regression: **751 tests passing** across 4 services (academics 477 + communications 145 + finance 90 + identity 39). Audit invariants confirmed: `attachment.cloned`, `attachment.cloned_bulk`, `national_curriculum.subject.republished`, `curriculum.subject.upgraded` carry IDs + counts + version deltas only — no filenames, no syllabus text, no topic/unit names.
 
-**Open follow-ups** (not blocking 17 closeout, deferred to Phase 18):
-- OCR for scanned PDFs/images (Tesseract — needs system-level binary).
-- Curriculum diff view ("what changed?" before clicking upgrade).
-- JSONB GIN-index swap for `topic_ids` on Postgres.
-- Cross-school template sharing for NGO use-cases.
-- Essay auto-grading (rubric- or LLM-assisted).
-- Storage backend swap to S3 (Phase 19 infra task).
+**Open follow-ups** (not blocking 17 closeout):
+- OCR for scanned PDFs/images (Tesseract — needs system-level binary). Deferred to Phase 19+.
+- ✅ Curriculum diff view ("what changed?" before clicking upgrade) — closed Phase 18a.
+- JSONB GIN-index swap for `topic_ids` on Postgres. Deferred to Phase 19+.
+- ✅ Cross-school template sharing for NGO use-cases — closed Phase 18b.
+- Essay auto-grading (rubric- or LLM-assisted). Deferred to Phase 19+.
+- Storage backend swap to S3 (infra task). Deferred to Phase 19+.
+
+---
+
+## §18 Cross-tenant Sharing + Curriculum Diff (Phase 18)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| D-001 | high | `GET /curriculum/upgrade-subject/preview` — read-only diff | 18a | ✅ closed 2026-05-27 (`services/academics/app/api/curriculum_routes.py`; reuses Phase 17d upgrade semantics without mutating; idempotent + safe to call repeatedly; audit row `curriculum.subject.upgrade_previewed` carries counts only) |
+| D-002 | high | Admin-web upgrade-preview page + stale-subject CTA on `/curriculum` | 18a | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(admin)/curriculum/[subjectId]/upgrade-preview/page.tsx` + alert+CTA wired into `(admin)/curriculum/page.tsx` with version badge) |
+| NT-001 | high | `NationalHomeworkTemplate` + `NationalLessonPlanTemplate` (global, no school_id) | 18b | ✅ closed 2026-05-27 (`services/academics/app/models/national_templates.py`; `code` natural unique key; subject_code + topic_codes resolved per-school at adopt-time) |
+| NT-002 | high | Alembic migration + `source_national_template_id` back-ref on local tables | 18b | ✅ closed 2026-05-27 (`services/academics/alembic/versions/2026_05_27_023_national_templates.py`; idempotent `_has_col` + `_has_table` guards) |
+| NT-003 | high | Ministry CRUD + publish/archive endpoints (gated `school:create`) | 18b | ✅ closed 2026-05-27 (`services/academics/app/api/national_templates_routes.py`; duplicate-code rejection on create; publish/archive lifecycle) |
+| NT-004 | high | School browse + adopt endpoints (gated `school:manage`) | 18b | ✅ closed 2026-05-27 (idempotent adopt by `(school_id, source_national_template_id)`; subject + topic resolution with `unresolved_topic_codes` returned; tenant-scoped; browse enriches with `adopted_local_template_id`) |
+| UI-011 | medium | Ministry `/ministry/templates` catalog + `/ministry/templates/new` form | 18c | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(ministry)/ministry/templates/page.tsx` + `/new/page.tsx`; kind-switching for homework vs lesson-plan; publish + archive actions) |
+| UI-012 | medium | School-facing `/templates/national` browse + adopt page | 18c | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(admin)/templates/national/page.tsx`; shows "Adopted" badge for already-adopted rows; surfaces unresolved topic codes after adopt) |
+| G-003 | high | Gateway RBAC + SERVICE_ROUTES for Phase 17d + 18 endpoints | 18b | ✅ closed 2026-05-27 (`services/api-gateway/app/routes.py`; explicit `school:manage` on upgrade-subject preview+commit, closing the defence-in-depth gap that defaulted to `authenticated`; new prefixes for `/ministry/national-templates` + `/national-templates`) |
+| A-024 | high | ADR 024 — cross-tenant sharing + diff view | 18d | ✅ closed 2026-05-27 (`docs/decisions/024-cross-tenant-templates-and-curriculum-diff.md`) |
+
+**Gate**: ✅ A HoD reviewing a stale ZIMSEC subject sees a "Review upgrade" alert on `/curriculum`. The preview page lists every unit/topic the upgrade will add or change, with field-level diffs and a count of custom rows preserved. The Ministry can publish a homework or lesson-plan template into a global catalog; any school browses `/templates/national`, adopts with one click, and the local copy lands in their existing template library (where the standard Phase 16d instantiate-to-class + Phase 17a attachment-clone flows take over). Backend regression: **766 tests passing** across 4 services (academics 492 + communications 145 + finance 90 + identity 39). Audit invariants confirmed: `curriculum.subject.upgrade_previewed`, `national_template.{created,published,archived,adopted}` carry IDs + counts + version deltas only — no syllabus content, no template titles, no homework bodies in `target` / `details`.
+
+**Open follow-ups** (not blocking 18 closeout, deferred to Phase 19+):
+- Cross-tenant attachment sharing (national templates are text-only in v1).
+- Versioned national templates with their own upgrade flow.
+- Bulk CSV import for national templates.
+- Catalog pagination once published-row count grows.
+- Dedicated "Publisher" tier for NGO governance separation.
+- OCR (Tesseract), essay auto-grading, JSONB GIN swap, S3 storage backend.
 
 ---
 
