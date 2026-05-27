@@ -273,6 +273,67 @@ def upgrade() -> None:
         op.create_index("ix_question_options_question_id", "question_options",
                         ["question_id"])
 
+    # ── Phase 16d — Homework + LessonPlan templates ────────────────
+    if not _has("homework_templates"):
+        op.create_table(
+            "homework_templates",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column("school_id", sa.String(36), nullable=False),
+            sa.Column("subject_id", sa.String(36), nullable=True),
+            sa.Column("title", sa.String(200), nullable=False),
+            sa.Column("description", sa.Text(), nullable=False),
+            sa.Column("default_due_days", sa.Integer(), nullable=True),
+            sa.Column("topic_ids", sa.Text(), nullable=True),
+            sa.Column("grade_levels", sa.Text(), nullable=True),
+            sa.Column("is_published_school_wide", sa.Boolean(),
+                      nullable=False, server_default=sa.text("false")),
+            sa.Column("source_template_id", sa.String(36), nullable=True),
+            sa.Column("maintained_by_user_id", sa.String(36), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("updated_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        op.create_index("ix_homework_templates_school_subject",
+                        "homework_templates", ["school_id", "subject_id"])
+        op.create_index("ix_homework_templates_school_published",
+                        "homework_templates",
+                        ["school_id", "is_published_school_wide"])
+        op.create_index("ix_homework_templates_source",
+                        "homework_templates", ["source_template_id"])
+
+    if not _has("lesson_plan_templates"):
+        op.create_table(
+            "lesson_plan_templates",
+            sa.Column("id", sa.String(36), primary_key=True),
+            sa.Column("school_id", sa.String(36), nullable=False),
+            sa.Column("subject_id", sa.String(36), nullable=True),
+            sa.Column("title", sa.String(200), nullable=False),
+            sa.Column("objectives", sa.Text(), nullable=True),
+            sa.Column("activities", sa.Text(), nullable=True),
+            sa.Column("resources", sa.Text(), nullable=True),
+            sa.Column("suggested_period_number", sa.Integer(), nullable=True),
+            sa.Column("topic_ids", sa.Text(), nullable=True),
+            sa.Column("grade_levels", sa.Text(), nullable=True),
+            sa.Column("is_published_school_wide", sa.Boolean(),
+                      nullable=False, server_default=sa.text("false")),
+            sa.Column("source_template_id", sa.String(36), nullable=True),
+            sa.Column("maintained_by_user_id", sa.String(36), nullable=False),
+            sa.Column("created_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("updated_at", sa.DateTime(timezone=True),
+                      nullable=False, server_default=sa.func.now()),
+            sa.Column("archived_at", sa.DateTime(timezone=True), nullable=True),
+        )
+        op.create_index("ix_lesson_plan_templates_school_subject",
+                        "lesson_plan_templates", ["school_id", "subject_id"])
+        op.create_index("ix_lesson_plan_templates_school_published",
+                        "lesson_plan_templates",
+                        ["school_id", "is_published_school_wide"])
+        op.create_index("ix_lesson_plan_templates_source",
+                        "lesson_plan_templates", ["source_template_id"])
+
     if not _has("question_drafts"):
         op.create_table(
             "question_drafts",
@@ -302,6 +363,7 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     for t in (
+        "homework_templates", "lesson_plan_templates",
         "question_drafts", "question_options", "questions",
         "national_topics", "national_units", "national_subjects",
         "curriculum_topics", "curriculum_units",

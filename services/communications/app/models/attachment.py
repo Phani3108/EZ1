@@ -23,19 +23,29 @@ from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 
 
-# Maximum upload size in bytes. 10 MB is generous for a phone photo
-# (most are 2-3 MB) but capped to protect storage. Audio recordings
-# (T-009 voice notes) compress well below this.
-MAX_UPLOAD_BYTES = 10 * 1024 * 1024
+# Maximum upload size in bytes. Phase 16e: bumped from 10 MB to 25 MB
+# so a long-form exam-paper PDF (scanned ZIMSEC past papers, full-
+# colour curriculum docs) round-trips. Phone photos (2-3 MB) + audio
+# recordings still sit comfortably below.
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024
 
 # Mime types the platform accepts. Anything outside this list is
 # rejected at the upload endpoint. The allow-list is conservative on
 # purpose — we'd rather refuse a valid upload than open a vector.
+#
+# Phase 16e additions (Office docs + CSV) — teachers attach .xlsx
+# worksheets and .docx lesson handouts; admins upload .csv when the
+# UI bulk-import path isn't convenient.
 ALLOWED_MIME_TYPES: frozenset[str] = frozenset({
     "image/jpeg", "image/png", "image/webp", "image/gif",
     "application/pdf",
     "audio/mpeg", "audio/webm", "audio/ogg",   # T-009 voice notes
-    "text/plain",
+    "text/plain", "text/csv",
+    # Phase 16e — Microsoft Office.
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",   # .xlsx
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   # .docx
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",   # .pptx
+    "application/vnd.ms-excel",   # legacy .xls
 })
 
 

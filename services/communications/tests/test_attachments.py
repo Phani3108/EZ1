@@ -153,8 +153,9 @@ class TestUpload:
     def test_oversize_rejected(self, client, engine_and_session):
         _, SessionLocal = engine_and_session
         ann_id = _seed_announcement(SessionLocal)
-        # 11 MB > MAX_UPLOAD_BYTES (10 MB)
-        big = b"a" * (11 * 1024 * 1024)
+        # 26 MB > MAX_UPLOAD_BYTES (25 MB, bumped in Phase 16e for
+        # long-form exam-paper PDFs).
+        big = b"a" * (26 * 1024 * 1024)
         r = client.post(
             "/api/v1/comm/attachments",
             headers=_headers(),
@@ -296,3 +297,91 @@ class TestAttachmentAudit:
             assert "alice-report-PII.pdf" not in blob
         finally:
             s.close()
+
+
+# ─── Phase 16e additions ──────────────────────────────────────────
+
+
+class TestPhase16eMimeExtension:
+    """Office MIME types + new owner_kinds + 25 MB cap."""
+
+    def test_xlsx_accepted(self, client, engine_and_session):
+        _, SessionLocal = engine_and_session
+        ann_id = _seed_announcement(SessionLocal)
+        r = client.post(
+            "/api/v1/comm/attachments",
+            headers=_headers(),
+            data={"owner_kind": "announcement", "owner_id": str(ann_id)},
+            files={"file": ("worksheet.xlsx", io.BytesIO(b"PK\x03\x04..."),
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["data"]["mime_type"].endswith("spreadsheetml.sheet")
+
+    def test_docx_accepted(self, client, engine_and_session):
+        _, SessionLocal = engine_and_session
+        ann_id = _seed_announcement(SessionLocal)
+        r = client.post(
+            "/api/v1/comm/attachments",
+            headers=_headers(),
+            data={"owner_kind": "announcement", "owner_id": str(ann_id)},
+            files={"file": ("lesson.docx", io.BytesIO(b"PK\x03\x04..."),
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+        )
+        assert r.status_code == 200
+
+    def test_csv_accepted(self, client, engine_and_session):
+        _, SessionLocal = engine_and_session
+        ann_id = _seed_announcement(SessionLocal)
+        r = client.post(
+            "/api/v1/comm/attachments",
+            headers=_headers(),
+            data={"owner_kind": "announcement", "owner_id": str(ann_id)},
+            files={"file": ("import.csv", io.BytesIO(b"a,b,c\n1,2,3\n"), "text/csv")},
+        )
+        assert r.status_code == 200
+
+    def test_new_owner_kinds_accepted(self, client):
+        """Phase 16 academic-content owner_kinds: lesson_plan,
+        lesson_plan_template, homework_template, assessment, question,
+        topic, national_topic. The owner-existence check returns True
+        for these (no backing table required in communications)."""
+        for kind in (
+            "homework", "lesson_plan", "lesson_plan_template",
+            "homework_template", "assessment", "question",
+            "topic", "national_topic",
+        ):
+            r = client.post(
+                "/api/v1/comm/attachments",
+                headers=_headers(),
+                data={"owner_kind": kind, "owner_id": str(uuid.uuid4())},
+                files={"file": ("x.pdf", io.BytesIO(b"%PDF-1.4..."),
+                                "application/pdf")},
+            )
+            assert r.status_code == 200, (
+                f"owner_kind={kind} failed: {r.text}"
+            )
+
+    def test_24mb_pdf_accepted_25mb_rejected(self, client, engine_and_session):
+        """Confirm new size boundary: 24 MB OK, 26 MB rejected."""
+        _, SessionLocal = engine_and_session
+        ann_id = _seed_announcement(SessionLocal)
+        ok = b"%PDF-1.4..." + b"a" * (24 * 1024 * 1024)
+        r = client.post(
+            "/api/v1/comm/attachments",
+            headers=_headers(),
+            data={"owner_kind": "announcement", "owner_id": str(ann_id)},
+            files={"file": ("big-ok.pdf", io.BytesIO(ok),
+                            "application/pdf")},
+        )
+        assert r.status_code == 200, r.text
+
+        bad = b"%PDF-1.4..." + b"a" * (26 * 1024 * 1024)
+        r2 = client.post(
+            "/api/v1/comm/attachments",
+            headers=_headers(),
+            data={"owner_kind": "announcement", "owner_id": str(ann_id)},
+            files={"file": ("too-big.pdf", io.BytesIO(bad),
+                            "application/pdf")},
+        )
+        assert r2.status_code == 413

@@ -41,7 +41,19 @@ from app.models.audit import AuditLog
 router = APIRouter(tags=["Attachments"])
 
 
-VALID_OWNER_KINDS = {"announcement", "message", "incident", "mark"}
+VALID_OWNER_KINDS = {
+    # Phases 11–13 owners.
+    "announcement", "message", "incident", "mark",
+    # Phase 11e — homework (the polymorphic doc-string mentioned it
+    # but the allowlist hadn't caught up).
+    "homework",
+    # Phase 16 — academic-content owners. Lesson plans + their
+    # templates, homework templates, assessments (for exam-paper
+    # PDFs), questions, topics (e.g., a scanned ZIMSEC page attached
+    # to a topic for reference).
+    "lesson_plan", "lesson_plan_template", "homework_template",
+    "assessment", "question", "topic", "national_topic",
+}
 
 
 def _meta(request: Request) -> dict:

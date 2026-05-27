@@ -126,6 +126,10 @@ from app.models.question_bank import (  # Phase 16c
     QuestionOption,
     QuestionDraft,
 )
+from app.models.content_templates import (  # Phase 16d
+    HomeworkTemplate,
+    LessonPlanTemplate,
+)
 
 __all__ = [
     # School (PH2-6)
@@ -231,4 +235,6 @@ __all__ = [
     "Question",
     "QuestionOption",
     "QuestionDraft",
+    "HomeworkTemplate",
+    "LessonPlanTemplate",
 ]
