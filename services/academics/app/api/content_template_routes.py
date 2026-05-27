@@ -54,6 +54,7 @@ from app.models.content_templates import (
 from app.models.student_life import Homework
 from app.models.planning import LessonPlan
 from app.models.audit import AuditLog
+from app.services.attachment_client import clone_attachments_for_owner
 from eduzim_shared.audit import record_audit_event
 
 
@@ -358,10 +359,17 @@ def instantiate_hw_template(
     )
     db.add(hw)
     db.flush()
-    # Attachment cloning is a Phase 16e follow-up — attachments live
-    # in the communications service via the polymorphic Attachment
-    # table. For now `attachments_cloned` is 0 and the admin re-uploads
-    # any files. ADR 022 documents this.
+    # Phase 17a — clone every attachment the template owns into the
+    # new instance. Best-effort cross-service call to communications;
+    # failures degrade to attachments_cloned=0 (instance still created).
+    attachments_cloned = clone_attachments_for_owner(
+        school_id=school_id,
+        source_owner_kind="homework_template",
+        source_owner_id=t.id,
+        new_owner_kind="homework",
+        new_owner_id=hw.id,
+        actor_user_id=_actor(current_user),
+    )
     _audit(
         db, request,
         event_type="template.instantiated",
@@ -372,7 +380,7 @@ def instantiate_hw_template(
                 "school_id": str(school_id)},
         details={"template_type": "homework",
                  "class_id": str(body.class_id),
-                 "attachments_cloned": 0},
+                 "attachments_cloned": attachments_cloned},
     )
     db.commit()
     return _ok({
@@ -380,6 +388,7 @@ def instantiate_hw_template(
         "template_id": t.id,
         "due_date": due_date.isoformat(),
         "class_id": str(body.class_id),
+        "attachments_cloned": attachments_cloned,
     }, request, status=201)
 
 
@@ -573,6 +582,14 @@ def instantiate_lp_template(
     )
     db.add(lp)
     db.flush()
+    attachments_cloned = clone_attachments_for_owner(
+        school_id=school_id,
+        source_owner_kind="lesson_plan_template",
+        source_owner_id=t.id,
+        new_owner_kind="lesson_plan",
+        new_owner_id=lp.id,
+        actor_user_id=_actor(current_user),
+    )
     _audit(
         db, request,
         event_type="template.instantiated",
@@ -583,11 +600,12 @@ def instantiate_lp_template(
                 "school_id": str(school_id)},
         details={"template_type": "lesson_plan",
                  "class_id": str(body.class_id),
-                 "attachments_cloned": 0},
+                 "attachments_cloned": attachments_cloned},
     )
     db.commit()
     return _ok({
         "instance_id": lp.id,
         "template_id": t.id,
         "class_id": str(body.class_id),
+        "attachments_cloned": attachments_cloned,
     }, request, status=201)

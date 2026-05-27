@@ -94,6 +94,8 @@ def _ser_subject(s: NationalSubject) -> dict:
         "code": s.code,
         "name": s.name,
         "description": s.description,
+        # Phase 17d — version number; bumps each republish.
+        "version": int(s.version or 1),
         "ministry_published_at": (
             s.ministry_published_at.isoformat()
             if s.ministry_published_at else None
@@ -380,6 +382,43 @@ def publish_national_subject(
         event_type="national_curriculum.subject.published",
         actor=_actor_id(current_user),
         target={"resource": "national_subject", "id": str(s.id)},
-        details={},
+        details={"version": int(s.version or 1)},
     )
     return _ok(_ser_subject(s), request)
+
+
+@router.post("/ministry/national-curriculum/subjects/{subject_id}/republish")
+def republish_national_subject(
+    subject_id: uuid.UUID,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+):
+    """Phase 17d — bump the subject's `version` + re-stamp the
+    publish timestamp. Schools that adopted v=N see `is_stale: true`
+    on the next subject listing and can upgrade via
+    POST /curriculum/upgrade-subject."""
+    s = db.query(NationalSubject).filter(NationalSubject.id == subject_id).first()
+    if not s:
+        return _err("NATIONAL_SUBJECT_NOT_FOUND",
+                    "National subject not found.",
+                    request, status=404)
+    old_version = int(s.version or 1)
+    s.version = old_version + 1
+    s.ministry_published_at = datetime.now(timezone.utc)
+    db.commit()
+    _audit(
+        db, request,
+        event_type="national_curriculum.subject.republished",
+        actor=_actor_id(current_user),
+        target={"resource": "national_subject", "id": str(s.id)},
+        details={
+            "from_version": old_version,
+            "to_version": int(s.version),
+        },
+    )
+    return _ok({
+        "subject": _ser_subject(s),
+        "from_version": old_version,
+        "to_version": int(s.version),
+    }, request)

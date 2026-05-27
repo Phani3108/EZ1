@@ -8,3 +8,8 @@ pydantic>=2.0.0
 pydantic-settings>=2.0.0
 httpx>=0.27.0
 python-multipart>=0.0.9
+# Phase 17b — server-side image thumbnail generation on attachment
+# upload. Pillow is a small, well-maintained library with C bindings.
+# The attachment route falls back gracefully (no thumbnail, original
+# kept) when Pillow is unavailable.
+Pillow>=10.0.0

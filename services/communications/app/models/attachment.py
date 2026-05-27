@@ -67,6 +67,10 @@ class Attachment(Base):
     # storage_uri is opaque to the API. Production = s3://bucket/key,
     # dev = file:///var/lib/eduzim/attachments/xxx.
     storage_uri = Column(Text, nullable=False)
+    # Phase 17b — optional thumbnail URI for image uploads. Set at
+    # upload time when the source is image/* and Pillow is available;
+    # null otherwise. Same storage backend as `storage_uri`.
+    thumb_uri = Column(Text, nullable=True)
     uploaded_by_user_id = Column(UUID(as_uuid=True), nullable=False)
     created_at = Column(
         DateTime(timezone=True), nullable=False,

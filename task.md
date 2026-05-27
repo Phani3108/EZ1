@@ -635,14 +635,41 @@ EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activat
 **Gate**: ✅ All decisions locked in the Phase 16 plan are live in backend + UI. Backend regression: **729 tests passing** across 4 services (academics 470 + communications 130 + finance 90 + identity 39). Audit invariants confirmed clean: no question text, no answers, no body text, no template titles in `target` / `details` — only IDs + counts + admin-supplied rejection reasons.
 
 **Open follow-ups** (not blocking 16 closeout):
-- Attachment cloning on template instantiation (placeholder `attachments_cloned: 0`).
-- OCR for scanned PDFs/images (Tesseract — Phase 17).
-- Image thumbnail server-side (Pillow — Phase 17).
-- Curriculum versioning + ZIMSEC v2 upgrade path (Phase 17+).
+- ✅ Attachment cloning on template instantiation — closed Phase 17a.
+- OCR for scanned PDFs/images (Tesseract — Phase 18).
+- ✅ Image thumbnail server-side (Pillow) — closed Phase 17b.
+- ✅ Curriculum versioning + ZIMSEC v2 upgrade path — closed Phase 17d.
+- ✅ Phase 16h /ministry/curriculum/import bulk-upload UI — closed Phase 17c.
 - Cross-school template sharing (Phase 18).
 - Essay auto-grading (Phase 18).
-- JSONB + GIN index for topic_ids on Postgres (Phase 17 swap; current LIKE-substring path works on both).
-- Phase 16h /ministry/curriculum/import bulk-upload UI (CSV upload exists at the API; UI page is a follow-up).
+- JSONB + GIN index for topic_ids on Postgres (Phase 18 swap; current LIKE-substring path works on both).
+
+---
+
+## §17 Content-layer Polish (Phase 17)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| AT-001 | high | Attachment cloning endpoints (single + bulk) in communications | 17a | ✅ closed 2026-05-27 (`POST /api/v1/comm/attachments/clone` + `/clone-bulk`; tenant-scoped; reads source bytes via `storage.open()` and writes fresh URI; new `Attachment` row each time so template edits don't bleed into instances) |
+| AT-002 | high | Cross-service `attachment_client.py` wrapper in academics | 17a | ✅ closed 2026-05-27 (`services/academics/app/services/attachment_client.py`; best-effort; `EDUZIM_DISABLE_CROSS_SERVICE_HTTP=1` short-circuits for tests; instantiation never blocks on clone failure) |
+| AT-003 | high | Wire template instantiation to use clone (homework + lesson-plan) | 17a | ✅ closed 2026-05-27 (`content_template_routes.py`; `attachments_cloned` count now reflects actual bytes-cloned; audit row records the count) |
+| TH-001 | high | Pillow-based JPEG thumbnail service (256×256, quality 80, progressive) | 17b | ✅ closed 2026-05-27 (`services/communications/app/services/thumbnails.py`; EXIF-aware via `ImageOps.exif_transpose`; flattens transparent PNGs onto white; skips animated GIFs; falls back to `None` when Pillow missing or image malformed) |
+| TH-002 | medium | `Attachment.thumb_uri` column + `GET /comm/attachments/{id}/thumbnail` | 17b | ✅ closed 2026-05-27 (Alembic `2026_05_27_011_attachment_thumb_uri.py`; serves with `Cache-Control: private, max-age=3600`; 404 `NO_THUMBNAIL` when not an image or pre-Phase-17b) |
+| UI-010 | medium | Ministry `/curriculum/import` admin-web page | 17c | ✅ closed 2026-05-27 (`apps/admin-web/src/app/(ministry)/ministry/curriculum/import/page.tsx`; drag-drop CSV; dry-run preview then commit; `school:create` gated; links to canonical template) |
+| V-001 | high | Curriculum versioning schema (`national_subjects.version`, `subjects.adopted_national_version`) | 17d | ✅ closed 2026-05-27 (Alembic `2026_05_27_022_curriculum_versioning.py`; idempotent `_has_col` guard) |
+| V-002 | high | `POST /ministry/national-curriculum/subjects/{id}/republish` + `POST /curriculum/upgrade-subject` | 17d | ✅ closed 2026-05-27 (`national_curriculum_routes.py` republish bumps version + re-stamps `ministry_published_at`; `curriculum_routes.py` upgrade idempotent, preserves local custom topics and locally-deleted national rows; `is_stale` indicator surfaced in `GET /curriculum/subjects`) |
+| V-003 | medium | `GET /curriculum/subjects` returns `adopted_national_version`, `national_current_version`, `is_stale` | 17d | ✅ closed 2026-05-27 (per-row enrichment via Python-side iterate-and-match — Subject.national_subject_id is String(36) and NationalSubject.id is UUID; no SQL cross-type cast required) |
+| A-023 | high | ADR 023 — Content-layer polish | 17e | ✅ closed 2026-05-27 (`docs/decisions/023-content-layer-polish.md`) |
+
+**Gate**: ✅ A HoD can publish a homework template school-wide and every teacher's instance pulls the full attachment bundle (no re-uploads). Image attachments in the announcement feed render via 256×256 server-side JPEGs on mobile (Pillow). The Ministry can republish a ZIMSEC subject and schools see an `is_stale` indicator; one-click upgrade pulls new units/topics while preserving local customisations. Backend regression: **751 tests passing** across 4 services (academics 477 + communications 145 + finance 90 + identity 39). Audit invariants confirmed: `attachment.cloned`, `attachment.cloned_bulk`, `national_curriculum.subject.republished`, `curriculum.subject.upgraded` carry IDs + counts + version deltas only — no filenames, no syllabus text, no topic/unit names.
+
+**Open follow-ups** (not blocking 17 closeout, deferred to Phase 18):
+- OCR for scanned PDFs/images (Tesseract — needs system-level binary).
+- Curriculum diff view ("what changed?" before clicking upgrade).
+- JSONB GIN-index swap for `topic_ids` on Postgres.
+- Cross-school template sharing for NGO use-cases.
+- Essay auto-grading (rubric- or LLM-assisted).
+- Storage backend swap to S3 (Phase 19 infra task).
 
 ---
 

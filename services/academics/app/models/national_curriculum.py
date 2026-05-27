@@ -59,6 +59,12 @@ class NationalSubject(Base):
     description = Column(Text, nullable=True)
     # Publish gate. Until set, schools cannot adopt this subject.
     ministry_published_at = Column(DateTime(timezone=True), nullable=True)
+    # Phase 17d — curriculum version. Bumped each time the Ministry
+    # re-publishes a revised tree. Schools that adopted v=N see a
+    # "stale copy" indicator until they upgrade via
+    # POST /curriculum/upgrade-subject (which re-runs the clone
+    # preserving local customisations).
+    version = Column(Integer, nullable=False, default=1, server_default="1")
     created_at = Column(DateTime(timezone=True), default=_utcnow, nullable=False)
     updated_at = Column(
         DateTime(timezone=True), default=_utcnow, onupdate=_utcnow,

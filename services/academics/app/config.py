@@ -38,6 +38,12 @@ class Settings(BaseSettings):
     # the old reporting-service made (students, attendance) are gone:
     # academics owns those tables in-process now.
     FINANCE_SERVICE_URL: str = "http://finance:8000"
+    # Phase 17a — academics calls communications when a HomeworkTemplate
+    # / LessonPlanTemplate is instantiated, to clone the attached files
+    # to the new owner (Homework / LessonPlan instance). Optional —
+    # if unreachable, instantiation still succeeds but with
+    # `attachments_cloned = 0`.
+    COMMUNICATIONS_SERVICE_URL: str = "http://communications:8000"
 
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=True)
 

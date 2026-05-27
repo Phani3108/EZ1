@@ -171,6 +171,10 @@ class Subject(Base):
     # String(36) since NationalSubject lives in a separate logical
     # tenant (no school_id) and we don't want a cross-tenant FK.
     national_subject_id = Column(String(36), nullable=True, index=True)
+    # Phase 17d — which version of NationalSubject this school's tree
+    # was last synced from. NULL for custom (non-adopted) subjects;
+    # bumps to match NationalSubject.version after an upgrade.
+    adopted_national_version = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
 

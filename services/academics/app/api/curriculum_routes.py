@@ -94,14 +94,14 @@ def _audit(db: Session, request: Request, *,
 # ─── Helpers ──────────────────────────────────────────────────────
 
 
-def _ser_subject(s: Subject) -> dict:
+def _ser_subject(s: Subject, *, national_version: Optional[int] = None) -> dict:
     grade_levels: List[str] = []
     if s.grade_levels:
         try:
             grade_levels = json.loads(s.grade_levels)
         except Exception:
             grade_levels = []
-    return {
+    out = {
         "id": str(s.id),
         "school_id": str(s.school_id),
         "name": s.name,
@@ -109,7 +109,22 @@ def _ser_subject(s: Subject) -> dict:
         "is_active": bool(s.is_active),
         "grade_levels": grade_levels,
         "national_subject_id": s.national_subject_id,
+        # Phase 17d — adoption + version metadata. `is_stale` is true
+        # iff the school adopted this subject but the Ministry has
+        # since published a newer version.
+        "adopted_national_version": (
+            int(s.adopted_national_version)
+            if s.adopted_national_version is not None else None
+        ),
+        "national_current_version": national_version,
+        "is_stale": (
+            s.national_subject_id is not None
+            and national_version is not None
+            and s.adopted_national_version is not None
+            and national_version > s.adopted_national_version
+        ),
     }
+    return out
 
 
 def _ser_unit(u: Unit) -> dict:
@@ -469,6 +484,10 @@ def adopt_subject(
         is_active=True,
         grade_levels=json.dumps(body.grade_levels) if body.grade_levels else None,
         national_subject_id=str(nat.id),
+        # Phase 17d — track which national-curriculum version we
+        # cloned. Surfaces as `is_stale` on subject listing once the
+        # Ministry publishes a newer version.
+        adopted_national_version=int(nat.version or 1),
     )
     db.add(s)
     db.flush()
@@ -571,11 +590,270 @@ def list_subjects(
     school_id: uuid.UUID = Depends(get_school_id),
 ):
     """List the caller's school subjects, including grade_levels +
-    national_subject_id back-ref. Used by the teacher-web tree view."""
+    national_subject_id back-ref + `is_stale` indicator when the
+    Ministry has published a newer version of a national subject
+    this school adopted (Phase 17d)."""
     rows = (
         db.query(Subject)
         .filter(Subject.school_id == school_id, Subject.is_active == True)  # noqa: E712
         .order_by(Subject.name.asc())
         .all()
     )
-    return _ok([_ser_subject(s) for s in rows], request)
+    # Batch-load national versions for adopted subjects.
+    # Subject.national_subject_id is String(36); NationalSubject.id is
+    # a UUID column — the cross-type IN join is unreliable on SQLite,
+    # so iterate-and-match in Python.
+    nat_ids_str = [r.national_subject_id for r in rows if r.national_subject_id]
+    nat_version_by_id: dict[str, int] = {}
+    if nat_ids_str:
+        try:
+            nat_rows = db.query(NationalSubject).all()
+            nat_version_by_id = {
+                str(n.id): int(n.version or 1)
+                for n in nat_rows
+                if str(n.id) in set(nat_ids_str)
+            }
+        except Exception:
+            nat_version_by_id = {}
+    return _ok([
+        _ser_subject(
+            s,
+            national_version=nat_version_by_id.get(s.national_subject_id),
+        )
+        for s in rows
+    ], request)
+
+
+class UpgradeSubjectBody(BaseModel):
+    """Phase 17d — re-clone units/topics from a newer NationalSubject
+    version while preserving school-local additions.
+
+    Semantics:
+      - For every NationalUnit/NationalTopic on the current version,
+        upsert the corresponding school-local Unit/Topic by
+        `national_*_id`. Updates name + sequence + learning_outcomes
+        + grade_level if they changed.
+      - For new National rows (added in the new version), create new
+        local rows.
+      - For local Unit/Topic rows where `national_*_id IS NULL`
+        (custom additions), preserve them untouched.
+      - For local rows whose national counterpart was removed in v2,
+        we KEEP the local row (don't auto-delete content the school
+        may rely on). The HoD can manually archive these.
+    """
+    school_subject_id: uuid.UUID
+
+
+@router.post("/curriculum/upgrade-subject")
+def upgrade_subject(
+    body: UpgradeSubjectBody,
+    request: Request,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user),
+    school_id: uuid.UUID = Depends(get_school_id),
+):
+    """Pull the latest NationalSubject version into this school's
+    local Unit/Topic tree. Idempotent — running with no version delta
+    is a no-op that just returns counts."""
+    s = (
+        db.query(Subject)
+        .filter(Subject.id == body.school_subject_id,
+                Subject.school_id == school_id)
+        .first()
+    )
+    if not s:
+        return _err("SUBJECT_NOT_FOUND", "Subject not found.", request, status=404)
+    if not s.national_subject_id:
+        return _err(
+            "SUBJECT_NOT_ADOPTED",
+            "Only nationally-adopted subjects can be upgraded.",
+            request, status=400,
+        )
+    # Subject.national_subject_id is String(36); NationalSubject.id is
+    # a UUID column. Iterate-and-match in Python to avoid the cross-
+    # type IN comparison that SQLite handles unreliably.
+    try:
+        nat_lookup_id = uuid.UUID(s.national_subject_id)
+        nat = (
+            db.query(NationalSubject)
+            .filter(NationalSubject.id == nat_lookup_id)
+            .first()
+        )
+    except (ValueError, TypeError):
+        nat = None
+    if not nat:
+        return _err(
+            "NATIONAL_SUBJECT_NOT_FOUND",
+            "Source national subject no longer exists.",
+            request, status=404,
+        )
+    if not nat.ministry_published_at:
+        return _err(
+            "NATIONAL_SUBJECT_NOT_PUBLISHED",
+            "The source national subject is unpublished.",
+            request, status=400,
+        )
+
+    from_version = int(s.adopted_national_version or 0)
+    to_version = int(nat.version or 1)
+    if from_version >= to_version:
+        return _ok({
+            "subject_id": str(s.id),
+            "from_version": from_version,
+            "to_version": to_version,
+            "units_added": 0, "units_updated": 0,
+            "topics_added": 0, "topics_updated": 0,
+            "no_op": True,
+        }, request)
+
+    # Build national-id → local-row maps for upsert lookups.
+    local_units = (
+        db.query(Unit)
+        .filter(Unit.school_id == school_id, Unit.subject_id == s.id)
+        .all()
+    )
+    local_unit_by_natid: dict[str, Unit] = {
+        u.national_unit_id: u for u in local_units if u.national_unit_id
+    }
+    local_topics = (
+        db.query(Topic)
+        .filter(Topic.school_id == school_id, Topic.subject_id == s.id)
+        .all()
+    )
+    local_topic_by_natid: dict[str, Topic] = {
+        t.national_topic_id: t for t in local_topics if t.national_topic_id
+    }
+
+    units_added = 0
+    units_updated = 0
+    topics_added = 0
+    topics_updated = 0
+
+    nat_units = (
+        db.query(NationalUnit)
+        .filter(NationalUnit.national_subject_id == nat.id)
+        .order_by(NationalUnit.sequence_order.asc())
+        .all()
+    )
+    nat_unit_to_local: dict[str, Unit] = {}
+    for nu in nat_units:
+        existing = local_unit_by_natid.get(str(nu.id))
+        if existing:
+            changed = (
+                existing.name != nu.name
+                or existing.sequence_order != int(nu.sequence_order or 0)
+                or existing.grade_level != nu.grade_level
+                or existing.description != nu.description
+            )
+            if changed:
+                existing.name = nu.name
+                existing.sequence_order = int(nu.sequence_order or 0)
+                existing.grade_level = nu.grade_level
+                existing.description = nu.description
+                units_updated += 1
+            nat_unit_to_local[str(nu.id)] = existing
+        else:
+            u = Unit(
+                id=uuid.uuid4(),
+                school_id=school_id,
+                subject_id=s.id,
+                name=nu.name,
+                code=nu.code,
+                sequence_order=int(nu.sequence_order or 0),
+                grade_level=nu.grade_level,
+                description=nu.description,
+                national_unit_id=str(nu.id),
+                created_by=_actor(current_user),
+            )
+            db.add(u)
+            db.flush()
+            units_added += 1
+            nat_unit_to_local[str(nu.id)] = u
+
+    # Topics. Two passes — first upsert, then re-wire parents.
+    nat_topic_rows = (
+        db.query(NationalTopic)
+        .join(NationalUnit, NationalUnit.id == NationalTopic.national_unit_id)
+        .filter(NationalUnit.national_subject_id == nat.id)
+        .order_by(NationalTopic.sequence_order.asc())
+        .all()
+    )
+    for nt in nat_topic_rows:
+        local_unit = nat_unit_to_local.get(str(nt.national_unit_id))
+        if not local_unit:
+            continue
+        existing = local_topic_by_natid.get(str(nt.id))
+        if existing:
+            changed = (
+                existing.name != nt.name
+                or existing.sequence_order != int(nt.sequence_order or 0)
+                or existing.learning_outcomes != nt.learning_outcomes
+                or existing.unit_id != local_unit.id   # rare: topic moved units
+            )
+            if changed:
+                existing.name = nt.name
+                existing.sequence_order = int(nt.sequence_order or 0)
+                existing.learning_outcomes = nt.learning_outcomes
+                existing.unit_id = local_unit.id
+                topics_updated += 1
+        else:
+            t = Topic(
+                id=uuid.uuid4(),
+                school_id=school_id,
+                subject_id=s.id,
+                unit_id=local_unit.id,
+                parent_topic_id=None,
+                name=nt.name,
+                code=nt.code,
+                sequence_order=int(nt.sequence_order or 0),
+                learning_outcomes=nt.learning_outcomes,
+                national_topic_id=str(nt.id),
+                created_by=_actor(current_user),
+            )
+            db.add(t)
+            db.flush()
+            local_topic_by_natid[str(nt.id)] = t
+            topics_added += 1
+
+    # Re-wire parent_topic_id pointers.
+    for nt in nat_topic_rows:
+        local_topic = local_topic_by_natid.get(str(nt.id))
+        if not local_topic:
+            continue
+        if nt.parent_topic_id:
+            local_parent = local_topic_by_natid.get(str(nt.parent_topic_id))
+            new_parent_id = local_parent.id if local_parent else None
+        else:
+            new_parent_id = None
+        if local_topic.parent_topic_id != new_parent_id:
+            local_topic.parent_topic_id = new_parent_id
+
+    s.adopted_national_version = to_version
+    _audit(
+        db, request,
+        event_type="curriculum.subject.upgraded",
+        school_id=school_id,
+        actor=_actor(current_user),
+        target={"resource": "subject", "id": str(s.id),
+                "school_id": str(school_id),
+                "national_subject_id": str(nat.id)},
+        details={
+            "from_version": from_version,
+            "to_version": to_version,
+            "units_added": units_added,
+            "units_updated": units_updated,
+            "topics_added": topics_added,
+            "topics_updated": topics_updated,
+        },
+    )
+    db.commit()
+    return _ok({
+        "subject_id": str(s.id),
+        "from_version": from_version,
+        "to_version": to_version,
+        "units_added": units_added,
+        "units_updated": units_updated,
+        "topics_added": topics_added,
+        "topics_updated": topics_updated,
+        "no_op": False,
+    }, request)

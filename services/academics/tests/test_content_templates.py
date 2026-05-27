@@ -11,6 +11,10 @@ import pytest
 
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_academics_content_templates.db")
 os.environ.setdefault("KAFKA_ENABLED", "false")
+# Phase 17a — template instantiation now calls communications to
+# clone attachments. Short-circuit the cross-service call in tests so
+# we don't depend on a running communications service.
+os.environ["EDUZIM_DISABLE_CROSS_SERVICE_HTTP"] = "1"
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
