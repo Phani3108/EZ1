@@ -15,17 +15,27 @@ from app.services.audit import record_audit_event
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
+# Phase 19d — ADR-020 alignment.
+# All other services use this cross-school sentinel for audit rows that
+# legitimately span tenants (Ministry actions, failed logins, etc.).
+# Identity was the lone holdout on `00000000-…-0`; STATUS.md §6 even
+# documented the divergence approvingly. This commit closes it so the
+# audit table has one consistent sentinel value.
+_CROSS_SCHOOL_SENTINEL = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
+
+
 def _audit_school_id(school_id_str: str | None) -> uuid.UUID:
     """Coerce an audit row's school_id. Identity's school_id may be
     None for failed-login attempts where we don't know the user yet —
-    in that case we use the all-zeros sentinel UUID so the column
-    constraint is satisfied and audit retention still works."""
+    in that case we use the cross-school sentinel UUID (per ADR 020)
+    so the column constraint is satisfied and audit retention still
+    works."""
     if not school_id_str:
-        return uuid.UUID("00000000-0000-0000-0000-000000000000")
+        return _CROSS_SCHOOL_SENTINEL
     try:
         return uuid.UUID(str(school_id_str))
     except (TypeError, ValueError):
-        return uuid.UUID("00000000-0000-0000-0000-000000000000")
+        return _CROSS_SCHOOL_SENTINEL
 
 
 def _meta(request: Request) -> dict:

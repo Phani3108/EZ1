@@ -218,7 +218,12 @@ def initiate_payment(
             target={"resource": "payment_transaction", "id": str(txn.id),
                     "reference": result.reference,
                     "invoice_id": str(payload.invoice_id)},
-            details={"provider": "manual"},
+            # Phase 19b — ADR 018 carves out amounts for money-move
+            # events. The peer events (`payment.manual.confirmed`,
+            # `PAYMENT_RECORDED`, `donation.recorded`) all carry the
+            # amount; this one was inconsistent. Mirrored now.
+            details={"provider": "manual",
+                     "amount": str(payload.amount)},
             request_id=getattr(request.state, "request_id", None),
         )
         db.commit()

@@ -22,7 +22,7 @@ import {
 } from "@/lib/curriculum-api";
 import {
   Card, CardHeader, CardTitle, CardContent,
-  Button, Alert, AlertTitle, AlertDescription, Badge,
+  Button, LinkButton, Alert, AlertTitle, AlertDescription, Badge,
 } from "@eduzim/ui";
 
 export default function CurriculumUpgradePreviewPage() {
@@ -87,9 +87,7 @@ export default function CurriculumUpgradePreviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Link href="/curriculum">Cancel</Link>
-          </Button>
+          <LinkButton variant="outline" href="/curriculum">Cancel</LinkButton>
           {!preview.no_op && (
             <button
               onClick={handleConfirm}

@@ -108,10 +108,12 @@ def create_announcement(data: AnnouncementCreate, request: Request,
                 "id": result["announcement"]["id"]},
         details={
             # PII-minimisation: never log the announcement BODY
-            # (free-text — could contain anything). Title is short
-            # admin-controlled metadata; including it helps the audit
-            # trail without exposing user-generated content.
-            "title": data.title,
+            # (free-text — could contain anything).
+            # Phase 19d audit fix: titles ARE free text and were leaking
+            # things like "Re: J. Sithole disciplinary". Replaced with
+            # a length, consistent with how `grievance.submitted`
+            # records subject. ADR 018 enforces.
+            "title_length": len(data.title or ""),
             "audience_type": data.audience.type,
             "channel_count": len(data.channels),
             "recipient_count": result["recipient_count"],

@@ -89,6 +89,24 @@ def _actor(current_user) -> str:
     return str(current_user["sub"])
 
 
+def _has_perm(current_user, perm: str) -> bool:
+    """Phase 19a — defence-in-depth perm check.
+
+    Gateway forwards a validated `X-Permissions` header; the shared
+    `ActorContext` dataclass exposes `has_permission(perm)`. We re-assert
+    inside HoD-only handlers so opening the gateway prefix for teacher
+    instantiate doesn't accidentally also open publish-school-wide.
+
+    Accepts either the dataclass or the legacy dict shape — both are
+    in use across the codebase.
+    """
+    has_method = getattr(current_user, "has_permission", None)
+    if callable(has_method):
+        return bool(has_method(perm))
+    perms = current_user.get("permissions") if hasattr(current_user, "get") else None
+    return bool(perms) and perm in perms
+
+
 def _audit(db: Session, request: Request, *,
            event_type: str, school_id: str, actor: str,
            target: dict, details: Optional[dict] = None):
@@ -257,10 +275,19 @@ def publish_hw_template(
     current_user: dict = Depends(get_current_user),
     school_id: uuid.UUID = Depends(get_school_id),
 ):
-    """HoD / SchoolAdmin only — gateway RBAC enforces. We re-assert
-    via a soft check that the caller is the maintainer OR has the
-    `school:manage` perm in their token (the gateway only forwards
-    perms it already validated)."""
+    """HoD / SchoolAdmin only.
+
+    Phase 19a: gateway prefix is `authenticated` (so teachers can hit
+    sibling endpoints like /instantiate); this handler enforces the
+    HoD/SchoolAdmin scope in-process via `school:manage`. Returns
+    403 INSUFFICIENT_PERMISSION when a plain teacher hits it directly.
+    """
+    if not _has_perm(current_user, "school:manage"):
+        return _err(
+            "INSUFFICIENT_PERMISSION",
+            "Only HoD or SchoolAdmin can publish a template school-wide.",
+            request, status=403,
+        )
     t = (
         db.query(HomeworkTemplate)
         .filter(HomeworkTemplate.id == str(template_id),
@@ -295,6 +322,12 @@ def unpublish_hw_template(
     current_user: dict = Depends(get_current_user),
     school_id: uuid.UUID = Depends(get_school_id),
 ):
+    if not _has_perm(current_user, "school:manage"):
+        return _err(
+            "INSUFFICIENT_PERMISSION",
+            "Only HoD or SchoolAdmin can unpublish a school-wide template.",
+            request, status=403,
+        )
     t = (
         db.query(HomeworkTemplate)
         .filter(HomeworkTemplate.id == str(template_id),
@@ -362,7 +395,11 @@ def instantiate_hw_template(
     # Phase 17a — clone every attachment the template owns into the
     # new instance. Best-effort cross-service call to communications;
     # failures degrade to attachments_cloned=0 (instance still created).
-    attachments_cloned = clone_attachments_for_owner(
+    # Phase 19b — the result now carries an error_kind so the audit row
+    # records WHY zero attachments came through (test env, comms down,
+    # bad JSON, etc.). Operators / the reporting consumer can grep for
+    # `attachment_clone_error` to find affected templates.
+    clone_result = clone_attachments_for_owner(
         school_id=school_id,
         source_owner_kind="homework_template",
         source_owner_id=t.id,
@@ -380,7 +417,8 @@ def instantiate_hw_template(
                 "school_id": str(school_id)},
         details={"template_type": "homework",
                  "class_id": str(body.class_id),
-                 "attachments_cloned": attachments_cloned},
+                 "attachments_cloned": clone_result.cloned_count,
+                 "attachment_clone_error": clone_result.error_kind},
     )
     db.commit()
     return _ok({
@@ -388,7 +426,8 @@ def instantiate_hw_template(
         "template_id": t.id,
         "due_date": due_date.isoformat(),
         "class_id": str(body.class_id),
-        "attachments_cloned": attachments_cloned,
+        "attachments_cloned": clone_result.cloned_count,
+        "attachment_clone_error": clone_result.error_kind,
     }, request, status=201)
 
 
@@ -515,6 +554,13 @@ def publish_lp_template(
     current_user: dict = Depends(get_current_user),
     school_id: uuid.UUID = Depends(get_school_id),
 ):
+    # Phase 19a — HoD/SchoolAdmin gate, see publish_hw_template above.
+    if not _has_perm(current_user, "school:manage"):
+        return _err(
+            "INSUFFICIENT_PERMISSION",
+            "Only HoD or SchoolAdmin can publish a template school-wide.",
+            request, status=403,
+        )
     t = (
         db.query(LessonPlanTemplate)
         .filter(LessonPlanTemplate.id == str(template_id),
@@ -582,7 +628,8 @@ def instantiate_lp_template(
     )
     db.add(lp)
     db.flush()
-    attachments_cloned = clone_attachments_for_owner(
+    # Phase 19b — visible-failure pattern; see homework instantiate above.
+    clone_result = clone_attachments_for_owner(
         school_id=school_id,
         source_owner_kind="lesson_plan_template",
         source_owner_id=t.id,
@@ -600,12 +647,14 @@ def instantiate_lp_template(
                 "school_id": str(school_id)},
         details={"template_type": "lesson_plan",
                  "class_id": str(body.class_id),
-                 "attachments_cloned": attachments_cloned},
+                 "attachments_cloned": clone_result.cloned_count,
+                 "attachment_clone_error": clone_result.error_kind},
     )
     db.commit()
     return _ok({
         "instance_id": lp.id,
         "template_id": t.id,
         "class_id": str(body.class_id),
-        "attachments_cloned": attachments_cloned,
+        "attachments_cloned": clone_result.cloned_count,
+        "attachment_clone_error": clone_result.error_kind,
     }, request, status=201)

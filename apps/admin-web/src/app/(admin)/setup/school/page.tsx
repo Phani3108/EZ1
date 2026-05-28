@@ -8,9 +8,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { useSetup } from "../setup-context";
-import { Card, CardHeader, CardTitle, CardContent, Button, ChecklistItem } from "@eduzim/ui";
+import { Card, CardHeader, CardTitle, CardContent, LinkButton, ChecklistItem } from "@eduzim/ui";
 
 export default function SchoolProfileSetup() {
   const { status } = useSetup();
@@ -39,9 +38,7 @@ export default function SchoolProfileSetup() {
                 : "—"
             }
           />
-          <Button>
-            <Link href="/schools">Edit school details →</Link>
-          </Button>
+          <LinkButton href="/schools">Edit school details →</LinkButton>
         </CardContent>
       </Card>
     </div>

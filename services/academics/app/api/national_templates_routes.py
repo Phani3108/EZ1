@@ -46,6 +46,7 @@ from typing import Optional, List
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -516,6 +517,11 @@ def _resolve_topics_for_school(
     """
     if not topic_codes:
         return [], []
+    # Phase 19d — dedupe codes preserving order. Without this, a Ministry
+    # author who lists the same topic code twice would end up with the
+    # corresponding local Topic ID duplicated in the adopted template's
+    # `topic_ids` JSON, polluting the Topic→Resource cross-index.
+    topic_codes = list(dict.fromkeys(topic_codes))
     q = db.query(Topic).filter(Topic.school_id == school_id)
     if subject_id is not None:
         q = q.filter(Topic.subject_id == subject_id)
@@ -585,7 +591,29 @@ def adopt_homework_template(
         source_national_template_id=str(nat.id),
     )
     db.add(local)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        # Phase 19b race fix: a concurrent adopt call from the same
+        # school just inserted the row first. Roll back, fetch it,
+        # return it as idempotent. Migration 2026_05_28_024 adds the
+        # UniqueConstraint that drives this.
+        db.rollback()
+        existing = (
+            db.query(HomeworkTemplate)
+            .filter(HomeworkTemplate.school_id == str(school_id))
+            .filter(HomeworkTemplate.source_national_template_id == str(nat.id))
+            .first()
+        )
+        if existing:
+            return _ok({
+                "local_template_id": str(existing.id),
+                "national_template_id": str(nat.id),
+                "idempotent": True,
+                "topics_resolved": 0,
+                "topics_unresolved": 0,
+            }, request)
+        raise
 
     _audit(
         db, request,
@@ -672,7 +700,26 @@ def adopt_lesson_plan_template(
         source_national_template_id=str(nat.id),
     )
     db.add(local)
-    db.flush()
+    try:
+        db.flush()
+    except IntegrityError:
+        # Phase 19b — see adopt_homework_template above.
+        db.rollback()
+        existing = (
+            db.query(LessonPlanTemplate)
+            .filter(LessonPlanTemplate.school_id == str(school_id))
+            .filter(LessonPlanTemplate.source_national_template_id == str(nat.id))
+            .first()
+        )
+        if existing:
+            return _ok({
+                "local_template_id": str(existing.id),
+                "national_template_id": str(nat.id),
+                "idempotent": True,
+                "topics_resolved": 0,
+                "topics_unresolved": 0,
+            }, request)
+        raise
 
     _audit(
         db, request,

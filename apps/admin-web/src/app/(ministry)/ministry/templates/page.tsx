@@ -15,7 +15,7 @@ import {
 } from "@/lib/curriculum-api";
 import {
   Card, CardHeader, CardTitle, CardContent,
-  Button, Alert, AlertTitle, AlertDescription, Badge,
+  Button, LinkButton, Alert, AlertTitle, AlertDescription, Badge,
 } from "@eduzim/ui";
 
 type Kind = "homework" | "lesson-plan";
@@ -72,9 +72,9 @@ export default function MinistryTemplatesPage() {
             template" picker.
           </p>
         </div>
-        <Button>
-          <Link href={`/ministry/templates/new?kind=${kind}`}>+ New template</Link>
-        </Button>
+        <LinkButton href={`/ministry/templates/new?kind=${kind}`}>
+          + New template
+        </LinkButton>
       </div>
 
       <div className="flex items-center gap-3 text-sm">

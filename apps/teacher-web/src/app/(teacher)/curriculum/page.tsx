@@ -94,9 +94,30 @@ export default function CurriculumPage() {
                     ? "bg-primary/10 text-primary font-medium"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground")
                 }
+                title={s.is_stale
+                  ? `ZIMSEC v${s.national_current_version} is available — ask your HoD to upgrade.`
+                  : undefined}
               >
-                <div>{s.name}</div>
-                <div className="text-xs text-muted-foreground">{s.code}</div>
+                <div className="flex items-center gap-1.5">
+                  <span>{s.name}</span>
+                  {/* Phase 19b — surface H5 staleness on teacher-web (was admin-web only). */}
+                  {s.is_stale && (
+                    <span
+                      aria-label="Ministry has published a newer ZIMSEC version"
+                      className="inline-flex items-center rounded border border-amber-500 px-1 text-[10px] font-medium text-amber-700"
+                    >
+                      stale
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {s.code}
+                  {s.national_subject_id && (
+                    <>
+                      {" · ZIMSEC v"}{s.adopted_national_version ?? "?"}
+                    </>
+                  )}
+                </div>
                 {s.grade_levels.length > 0 && (
                   <div className="mt-0.5 text-xs text-muted-foreground">
                     {s.grade_levels.join(" · ")}

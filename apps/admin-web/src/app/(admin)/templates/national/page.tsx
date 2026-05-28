@@ -66,11 +66,11 @@ export default function BrowseNationalTemplatesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Ministry & NGO templates</h1>
+        <h1 className="text-2xl font-bold">National templates catalog</h1>
         <p className="text-sm text-muted-foreground">
-          Canonical homework + lesson-plan patterns published by the Ministry
-          (and partner NGOs). Adopt brings the template into your school's
-          library where any teacher can instantiate it into a class.
+          Canonical homework + lesson-plan patterns published by the Ministry.
+          Adopt brings the template into your school's library where any
+          teacher can instantiate it into a class.
         </p>
       </div>
 

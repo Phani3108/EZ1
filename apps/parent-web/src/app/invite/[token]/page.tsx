@@ -11,6 +11,32 @@ import React, { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Alert, AlertTitle, AlertDescription } from "@eduzim/ui";
 
+/**
+ * Phase 19b H7 — friendly invite-error copy.
+ * Replaces the generic "Sorry: <backend message>" with per-status copy
+ * so a parent can tell apart "link expired" from "code wrong" from
+ * "server down".
+ */
+function _friendlyInviteError(status: number, body: any): string {
+  const code = body?.error?.code as string | undefined;
+  if (status === 404 || code === "NOT_FOUND" || code === "INVALID_TOKEN") {
+    return "This invitation link isn't valid. Ask your school admin to send you a new one.";
+  }
+  if (status === 410 || code === "EXPIRED") {
+    return "This invitation has expired. Ask your school admin to send you a fresh link.";
+  }
+  if (status === 409 || code === "ALREADY_ACTIVATED" || code === "ALREADY_USED") {
+    return "You've already activated this account. Sign in with your password instead.";
+  }
+  if (status === 429 || code === "RATE_LIMITED") {
+    return "Too many attempts — please wait a minute and try again.";
+  }
+  if (status >= 500) {
+    return "Something went wrong on our side. Please try again in a minute.";
+  }
+  return body?.error?.message ?? "Could not process this invitation.";
+}
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
@@ -38,14 +64,21 @@ export default function InviteLanding() {
     if (!token) return;
     fetch(`${API_BASE}/api/v1/invitations/${token}/preview`)
       .then(async (r) => {
-        const j = await r.json();
+        const j = await r.json().catch(() => ({}));
         if (!r.ok) {
-          setError(j?.error?.message ?? "Could not load this invitation.");
+          // Phase 19b H7 — specific copy per failure mode so the user
+          // doesn't see a generic "Sorry" for every error. The backend
+          // already returns appropriate codes; we just translate.
+          setError(_friendlyInviteError(r.status, j));
         } else {
           setPreview(j.data);
         }
       })
-      .catch((e) => setError(String(e)))
+      .catch(() =>
+        setError(
+          "Couldn't reach EduZim — check your internet connection and try again."
+        ),
+      )
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -69,9 +102,9 @@ export default function InviteLanding() {
           body: JSON.stringify({ password: pwd }),
         },
       );
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setError(j?.error?.message ?? "Activation failed.");
+        setError(_friendlyInviteError(r.status, j));
       } else {
         // Land on /home — the user will be prompted to log in normally.
         router.push("/login?activated=1");

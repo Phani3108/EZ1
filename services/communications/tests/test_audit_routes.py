@@ -128,8 +128,12 @@ class TestWriteSideWiring:
         rows = audit_r.json()["data"]
         assert len(rows) == 1
         assert rows[0]["target"]["id"] == ann_id
-        # Title is in details (admin-controlled, short)
-        assert rows[0]["details"]["title"] == "PTA Meeting"
+        # Phase 19d audit fix: title is NO LONGER in details (was free
+        # text — leaked things like "Re: J. Sithole disciplinary").
+        # `title_length` replaces it. ADR 025 documents the tightening.
+        assert "title" not in rows[0]["details"]
+        assert rows[0]["details"]["title_length"] == len("PTA Meeting")
         # BODY must NOT be in the audit (free-text, could contain PII)
+        assert "PTA Meeting" not in json.dumps(rows[0]["details"])
         assert "Please attend" not in json.dumps(rows[0]["details"])
         assert "body" not in rows[0]["details"]

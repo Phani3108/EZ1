@@ -27,7 +27,11 @@ logs:
 log:
 	docker compose logs -f $(s)
 
-# Run tests across all services
+# Run tests across all services.
+# Phase 19d — `make test` was broken since the PH2 service consolidation
+# deleted school-service / student-service / attendance-service /
+# assessment-service. The four surviving services are below; the
+# reporting-service has Kafka-consumer tests only (no HTTP surface).
 test:
 	@echo "🧪 Running shared lib tests..."
 	cd shared && python3 -m pytest tests/ -v
@@ -35,20 +39,14 @@ test:
 	cd services/identity && python3 -m pytest tests/ -v
 	@echo "🧪 Running academics tests..."
 	cd services/academics && python3 -m pytest tests/ -v
-	@echo "🧪 Running school-service tests..."
-	cd services/school-service && python3 -m pytest tests/ -v
-	@echo "🧪 Running student-service tests..."
-	cd services/student-service && python3 -m pytest tests/ -v
-	@echo "🧪 Running attendance-service tests..."
-	cd services/attendance-service && python3 -m pytest tests/ -v
 	@echo "🧪 Running finance tests..."
 	cd services/finance && python3 -m pytest tests/ -v
 	@echo "🧪 Running communications tests..."
 	cd services/communications && python3 -m pytest tests/ -v
 	@echo "🧪 Running reporting-service tests..."
 	cd services/reporting-service && python3 -m pytest tests/ -v
-	@echo "🧪 Running assessment-service tests..."
-	cd services/assessment-service && python3 -m pytest tests/ -v
+	@echo "🧪 Running api-gateway tests..."
+	cd services/api-gateway && python3 -m pytest tests/ -v
 
 # Create Kafka topics
 topics:

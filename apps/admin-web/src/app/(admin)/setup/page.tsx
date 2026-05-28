@@ -7,11 +7,10 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { useSetup } from "./setup-context";
 import {
   Card, CardHeader, CardTitle, CardContent,
-  Button, ReadinessBar, ChecklistItem,
+  Button, LinkButton, ReadinessBar, ChecklistItem,
 } from "@eduzim/ui";
 
 const STEP_HREF: Record<string, string> = {
@@ -83,11 +82,9 @@ export default function SetupLanding() {
             <div className="mb-2 text-sm text-muted-foreground">
               {nextStep.label} — {nextStep.status === "amber" ? "in progress" : "not started"}.
             </div>
-            <Button>
-              <Link href={STEP_HREF[nextStep.step] ?? "/setup/school"}>
-                Continue with {nextStep.label}
-              </Link>
-            </Button>
+            <LinkButton href={STEP_HREF[nextStep.step] ?? "/setup/school"}>
+              Continue with {nextStep.label}
+            </LinkButton>
           </CardContent>
         </Card>
       ) : (
@@ -99,9 +96,7 @@ export default function SetupLanding() {
             <div className="mb-2 text-sm text-muted-foreground">
               Every check is green. You're ready to go live.
             </div>
-            <Button>
-              <Link href="/setup/go-live">Go live →</Link>
-            </Button>
+            <LinkButton href="/setup/go-live">Go live →</LinkButton>
           </CardContent>
         </Card>
       )}

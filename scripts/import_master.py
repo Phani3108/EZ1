@@ -4,13 +4,22 @@
 Reads ``scripts/data/eduzim_master.xlsx`` (produced by ``build_master_dataset.py``)
 and seeds each service's database via SQLAlchemy Core.
 
+Phase 19d note: the per-service DB URL env vars below reference the
+pre-PH2 service names (`DATABASE_URL_SCHOOL_DB`, `_STUDENT_DB`, etc.).
+The four merged services share `academics_db`; the names are kept for
+backward-compat with existing operator scripts. If you wire this into
+the post-consolidation topology, point all of school/student/attendance/
+assessment URLs at the same `academics_db` (or use
+`DATABASE_URL_ACADEMICS_DB` once the migration script is updated —
+tracked as a Phase 19+ follow-up).
+
 Environment variables (any can be overridden individually):
   DATABASE_URL_BASE          (default: postgresql+psycopg2://eduzim:eduzim_secret@localhost:5432)
-  DATABASE_URL_SCHOOL_DB     overrides school-service DB URL
-  DATABASE_URL_STUDENT_DB    overrides student-service DB URL
-  DATABASE_URL_FEES_DB       ...
-  DATABASE_URL_ASSESSMENT_DB
-  DATABASE_URL_ATTENDANCE_DB
+  DATABASE_URL_SCHOOL_DB     overrides school-service DB URL (post-PH2: → academics_db)
+  DATABASE_URL_STUDENT_DB    overrides student-service DB URL (post-PH2: → academics_db)
+  DATABASE_URL_FEES_DB       overrides finance-service DB URL
+  DATABASE_URL_ASSESSMENT_DB (post-PH2: → academics_db)
+  DATABASE_URL_ATTENDANCE_DB (post-PH2: → academics_db)
   DATABASE_URL_COMMS_DB
   DATABASE_URL_AUTH_DB
 

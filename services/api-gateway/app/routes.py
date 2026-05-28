@@ -12,6 +12,17 @@ Single source of truth for:
 SERVICE_ROUTES = {
     # /api/v1/auth resolves at the identity service (PH2-2 rename).
     "/api/v1/auth": ("IDENTITY_SERVICE_URL", "identity"),
+    # Phase 19a — identity admin surface (rbac.py + preferences.py +
+    # forgot_password.py). Previously unreachable through the gateway,
+    # which meant either admin-web was broken or identity was reached
+    # via a direct port (RBAC bypass risk). Now properly routed +
+    # permission-gated below.
+    "/api/v1/users": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/roles": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/permissions": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/preferences": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/forgot-password": ("IDENTITY_SERVICE_URL", "identity"),
+    "/api/v1/reset-password": ("IDENTITY_SERVICE_URL", "identity"),
     # ─── PH2-10 cutover ────────────────────────────────────────────────
     # All academic-domain prefixes (13) now route to the merged `academics`
     # service. The old per-service containers (school/student/attendance/
@@ -174,6 +185,28 @@ RBAC_MAP = [
     ("POST", "/api/v1/auth/login", None),
     ("POST", "/api/v1/auth/register", None),
     ("GET", "/api/v1/auth/me", "authenticated"),
+    ("POST", "/api/v1/auth/refresh", None),
+    ("POST", "/api/v1/auth/logout", "authenticated"),
+
+    # Phase 19a — identity admin surface (was unreachable through
+    # gateway, see audit Critical-3).
+    # Password reset flows are PUBLIC (the user receives a token email).
+    ("POST", "/api/v1/forgot-password", None),
+    ("POST", "/api/v1/reset-password", None),
+    # User + role administration is SchoolAdmin-gated.
+    ("GET",  "/api/v1/users", "school:manage"),
+    ("POST", "/api/v1/users", "school:manage"),
+    ("PUT",  "/api/v1/users", "school:manage"),
+    ("POST", "/api/v1/users/", "school:manage"),       # /{id}/reset-password
+    ("GET",  "/api/v1/roles", "school:manage"),
+    ("POST", "/api/v1/roles", "school:manage"),
+    ("PUT",  "/api/v1/roles", "school:manage"),
+    ("POST", "/api/v1/roles/", "school:manage"),       # /{id}/permissions
+    ("GET",  "/api/v1/permissions", "school:manage"),
+    # Self-service preferences — any authenticated user reads + writes
+    # their OWN row (the route layer asserts the user_id match).
+    ("GET",   "/api/v1/preferences", "authenticated"),
+    ("PATCH", "/api/v1/preferences", "authenticated"),
 
     # School
     ("POST", "/api/v1/schools", "school:manage"),
@@ -550,13 +583,19 @@ RBAC_MAP = [
     ("POST",   "/api/v1/assessments/", "school:manage"),
 
     # Templates.
+    # Phase 19a fix: instantiate + sync-from-template are TEACHER-facing
+    # actions and were previously blocked by the broad `school:manage`
+    # prefix rule. The publish-school-wide handler itself now asserts
+    # `school:manage` server-side, so the gateway can safely open the
+    # prefix to `authenticated` — defence-in-depth holds and teachers
+    # regain the ability to instantiate templates.
     ("GET",    "/api/v1/homework-templates", "authenticated"),
     ("POST",   "/api/v1/homework-templates", "authenticated"),
-    ("POST",   "/api/v1/homework-templates/", "school:manage"),
-    ("POST",   "/api/v1/homework/", "school:manage"),
+    ("POST",   "/api/v1/homework-templates/", "authenticated"),
+    ("POST",   "/api/v1/homework/", "authenticated"),
     ("GET",    "/api/v1/lesson-plan-templates", "authenticated"),
     ("POST",   "/api/v1/lesson-plan-templates", "authenticated"),
-    ("POST",   "/api/v1/lesson-plan-templates/", "school:manage"),
+    ("POST",   "/api/v1/lesson-plan-templates/", "authenticated"),
 
     # Phase 12d/e/f — parent-life surfaces.
     # School events — anyone authenticated reads; admin writes.

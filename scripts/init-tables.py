@@ -1,7 +1,34 @@
 #!/usr/bin/env python3
+"""Phase 19d — DEPRECATED.
+
+This script predates the PH2 service consolidation. The
+`services/school-service`, `services/student-service`,
+`services/attendance-service`, `services/assessment-service` paths it
+points at were deleted when those services merged into
+`services/academics/`. Running this script in its current form will
+fail with `ModuleNotFoundError`.
+
+DO NOT USE for fresh setup. Each surviving service runs its own
+Alembic migrations via:
+
+  cd services/<name> && alembic upgrade head
+
+…or via the `migrations` container in `docker-compose.yml` which
+applies all four chains in dependency order.
+
+Kept on disk because a few ops runbooks still mention it; safer to
+mark deprecated than to rewrite and risk inviting use.
+"""
 import sys
 import os
 import importlib
+
+print(
+    "scripts/init-tables.py is DEPRECATED (Phase 19d). "
+    "Use `alembic upgrade head` per service or the `migrations` "
+    "container in docker-compose. See module docstring."
+)
+sys.exit(2)
 
 # Add shared lib and services to path
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

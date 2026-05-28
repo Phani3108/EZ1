@@ -47,13 +47,13 @@
 
 ### Known backend bugs (carry-overs to `task.md`)
 
-| Bug | Severity | Location |
+| Bug | Severity | Location / Status |
 |---|---|---|
-| `except Exception: pass` in teacher-auth verification | HIGH (security: fail-open) | `services/attendance-service/app/dependencies.py:64-65` |
-| `except Exception: pass` in Paynow polling | HIGH (correctness) | `services/fees-service/app/api/payments.py:346-367` |
-| Default JWT_SECRET_KEY shipped in compose | HIGH (security) | `docker-compose.yml:100,119,124,251` |
-| Default INTERNAL_SERVICE_TOKEN | HIGH (security) | `services/*/app/config.py` |
-| Migrations in service CMD → 8-service race | MEDIUM | `services/auth-service/Dockerfile:21` (and others) |
+| `except Exception: pass` in teacher-auth verification | ✅ closed Phase 4 (PH2-9 in-process replacement removed the network path; pre-consolidation site `services/attendance-service/app/dependencies.py` was deleted) |
+| `except Exception: pass` in Paynow polling | ✅ closed Phase 4 (`services/finance/app/api/payments.py` — service renamed PH2-3) |
+| Default JWT_SECRET_KEY shipped in compose | ✅ closed Phase 1 (`docker-compose.yml` now reads required `JWT_SECRET_KEY` from env; no default) |
+| Default INTERNAL_SERVICE_TOKEN | ✅ closed Phase 1 (`services/*/app/config.py` enforces required env, see `shared/eduzim_shared/auth.py`) |
+| Migrations in service CMD → 8-service race | ✅ closed Phase 2 (consolidation deleted the 4 pre-merge services with race-prone CMDs; the 4 surviving services run `alembic upgrade head` once in entrypoint) |
 
 ---
 

@@ -13,6 +13,27 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, Alert, AlertTi
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+/** Phase 19b H7 — see /invite/[token]/page.tsx for the rationale. */
+function _friendlyInviteError(status: number, body: any): string {
+  const code = body?.error?.code as string | undefined;
+  if (status === 404 || code === "INVALID_CODE" || code === "NOT_FOUND") {
+    return "That code didn't match. Check the phone number + code with your school admin.";
+  }
+  if (status === 410 || code === "EXPIRED") {
+    return "This code has expired. Ask your school admin to issue a new one.";
+  }
+  if (status === 409 || code === "ALREADY_ACTIVATED" || code === "ALREADY_USED") {
+    return "You've already activated this account. Sign in with your password instead.";
+  }
+  if (status === 429 || code === "RATE_LIMITED") {
+    return "Too many attempts — please wait a minute and try again.";
+  }
+  if (status >= 500) {
+    return "Something went wrong on our side. Please try again in a minute.";
+  }
+  return body?.error?.message ?? "Could not activate.";
+}
+
 export default function InviteByCode() {
   const router = useRouter();
   const [phone, setPhone] = useState("");
@@ -43,14 +64,14 @@ export default function InviteByCode() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ phone, code, password: pwd }),
       });
-      const j = await r.json();
+      const j = await r.json().catch(() => ({}));
       if (!r.ok) {
-        setError(j?.error?.message ?? "Activation failed.");
+        setError(_friendlyInviteError(r.status, j));
       } else {
         router.push("/login?activated=1");
       }
     } catch (e) {
-      setError(String(e));
+      setError("Couldn't reach EduZim — check your internet connection and try again.");
     } finally {
       setSubmitting(false);
     }

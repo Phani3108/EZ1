@@ -247,6 +247,82 @@ class TestHomeworkTemplate:
         assert r.json()["error"]["code"] == "NO_TEMPLATE_SOURCE"
 
 
+class TestTeacherCanInstantiateButNotPublishSchoolWide:
+    """Phase 19a — fixes Critical C2.
+
+    Before: the gateway's broad `("POST", "/api/v1/homework-templates/",
+    "school:manage")` blocked any teacher without school:manage from
+    hitting `/{id}/instantiate` — the very flow built for them. After:
+    the gateway prefix is `authenticated`; only `publish-school-wide`
+    is gated, and that gate is now enforced server-side too."""
+
+    def test_teacher_without_school_manage_can_instantiate(self, client):
+        s = _seed_subject(client)
+        # Admin creates + publishes a template (admin has school:manage).
+        t = client.post(
+            "/api/v1/homework-templates",
+            headers=_headers(role="SchoolAdmin", user_id=ADMIN_A),
+            json={"title": "Shared HW", "description": "Body",
+                  "subject_id": s["id"]},
+        ).json()["data"]
+        # Teacher with NO school:manage perm should be able to instantiate.
+        teacher_headers = _headers(
+            role="Teacher", user_id=TEACHER_A,
+            perms="attendance:write,assessment:write",  # no school:manage
+        )
+        r = client.post(
+            f"/api/v1/homework-templates/{t['id']}/instantiate",
+            headers=teacher_headers,
+            json={"class_id": str(uuid.uuid4()), "due_date": "2026-09-01"},
+        )
+        assert r.status_code == 201, r.text
+
+    def test_teacher_without_school_manage_cannot_publish_school_wide(self, client):
+        s = _seed_subject(client)
+        t = client.post(
+            "/api/v1/homework-templates",
+            headers=_headers(user_id=TEACHER_A),
+            json={"title": "T's HW", "description": "Body",
+                  "subject_id": s["id"]},
+        ).json()["data"]
+        teacher_headers = _headers(
+            role="Teacher", user_id=TEACHER_A,
+            perms="attendance:write,assessment:write",
+        )
+        r = client.post(
+            f"/api/v1/homework-templates/{t['id']}/publish-school-wide",
+            headers=teacher_headers,
+        )
+        assert r.status_code == 403
+        assert r.json()["error"]["code"] == "INSUFFICIENT_PERMISSION"
+
+    def test_lesson_plan_template_same_gate(self, client):
+        s = _seed_subject(client)
+        t = client.post(
+            "/api/v1/lesson-plan-templates",
+            headers=_headers(user_id=TEACHER_A),
+            json={"title": "LP", "objectives": "x",
+                  "subject_id": s["id"]},
+        ).json()["data"]
+        teacher_headers = _headers(
+            role="Teacher", user_id=TEACHER_A,
+            perms="attendance:write",
+        )
+        # Instantiate works.
+        ok = client.post(
+            f"/api/v1/lesson-plan-templates/{t['id']}/instantiate",
+            headers=teacher_headers,
+            json={"class_id": str(uuid.uuid4())},
+        )
+        assert ok.status_code == 201, ok.text
+        # publish-school-wide blocked.
+        blocked = client.post(
+            f"/api/v1/lesson-plan-templates/{t['id']}/publish-school-wide",
+            headers=teacher_headers,
+        )
+        assert blocked.status_code == 403
+
+
 class TestTenantIsolation:
     def test_other_school_cannot_see_my_template(self, client):
         s = _seed_subject(client)

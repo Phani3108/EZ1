@@ -23,7 +23,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import (
     Column, String, DateTime, Text, Boolean, Date, Integer,
-    Index,
+    Index, UniqueConstraint,
 )
 from app.database import Base
 
@@ -47,6 +47,11 @@ class HomeworkTemplate(Base):
               "school_id", "subject_id"),
         Index("ix_homework_templates_school_published",
               "school_id", "is_published_school_wide"),
+        # Phase 19b — idempotency lock for cross-school adopt. Without
+        # this, a double-click on the "Adopt" button in
+        # /templates/national created two local clones.
+        UniqueConstraint("school_id", "source_national_template_id",
+                         name="uq_homework_template_school_source_natl"),
     )
 
     id = Column(UUID_STR, primary_key=True, default=_new_uuid)
@@ -92,6 +97,9 @@ class LessonPlanTemplate(Base):
               "school_id", "subject_id"),
         Index("ix_lesson_plan_templates_school_published",
               "school_id", "is_published_school_wide"),
+        # Phase 19b — same idempotency story as HomeworkTemplate above.
+        UniqueConstraint("school_id", "source_national_template_id",
+                         name="uq_lesson_plan_template_school_source_natl"),
     )
 
     id = Column(UUID_STR, primary_key=True, default=_new_uuid)

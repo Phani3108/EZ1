@@ -14,7 +14,7 @@ import { curriculumApi, type NationalSubjectRow } from "@/lib/curriculum-api";
 import { api } from "@/lib/api";
 import {
   Card, CardHeader, CardTitle, CardContent,
-  Button, Alert, AlertTitle, AlertDescription,
+  Button, LinkButton, Alert, AlertTitle, AlertDescription,
   Dialog, DialogHeader, DialogTitle, DialogFooter,
   Input, Label,
 } from "@eduzim/ui";
@@ -69,9 +69,9 @@ export default function MinistryCurriculumPage() {
         </div>
         {canPublish && (
           <div className="flex gap-2">
-            <Button variant="outline">
-              <Link href="/ministry/curriculum/import">Bulk import (CSV)</Link>
-            </Button>
+            <LinkButton variant="outline" href="/ministry/curriculum/import">
+              Bulk import (CSV)
+            </LinkButton>
             <Button onClick={() => setShowNew(true)}>+ New subject</Button>
           </div>
         )}

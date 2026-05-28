@@ -7,9 +7,8 @@
 "use client";
 
 import React from "react";
-import Link from "next/link";
 import { useSetup } from "../setup-context";
-import { Card, CardHeader, CardTitle, CardContent, Button, ChecklistItem } from "@eduzim/ui";
+import { Card, CardHeader, CardTitle, CardContent, LinkButton, ChecklistItem } from "@eduzim/ui";
 
 export default function ClassesSubjectsSetup() {
   const { status } = useSetup();
@@ -36,12 +35,10 @@ export default function ClassesSubjectsSetup() {
             evidence={`${(subjects?.evidence as any)?.count ?? 0} subject(s)`}
           />
           <div className="pt-2 flex gap-3">
-            <Button>
-              <Link href="/academics">Manage classes →</Link>
-            </Button>
-            <Button variant="outline">
-              <Link href="/academics">Manage subjects →</Link>
-            </Button>
+            <LinkButton href="/academics">Manage classes →</LinkButton>
+            <LinkButton variant="outline" href="/academics">
+              Manage subjects →
+            </LinkButton>
           </div>
         </CardContent>
       </Card>

@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useAuth } from "@eduzim/auth";
 import {
   Card, CardHeader, CardTitle, CardContent,
-  Button, BulkUpload, Alert, AlertTitle, AlertDescription,
+  Button, LinkButton, BulkUpload, Alert, AlertTitle, AlertDescription,
 } from "@eduzim/ui";
 
 interface ImportResult {
@@ -192,9 +192,9 @@ export default function MinistryCurriculumImportPage() {
               </AlertDescription>
             </Alert>
             <div className="mt-3">
-              <Button variant="outline">
-                <Link href="/ministry/curriculum">Back to curriculum overview</Link>
-              </Button>
+              <LinkButton variant="outline" href="/ministry/curriculum">
+                Back to curriculum overview
+              </LinkButton>
             </div>
           </CardContent>
         </Card>

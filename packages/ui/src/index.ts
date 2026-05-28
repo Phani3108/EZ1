@@ -1,5 +1,7 @@
 export { Button } from "./components/button";
 export type { ButtonProps } from "./components/button";
+export { LinkButton } from "./components/link-button";
+export type { LinkButtonProps } from "./components/link-button";
 export { Input } from "./components/input";
 export { Label } from "./components/label";
 export { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./components/card";
@@ -37,6 +39,10 @@ export type { PersonaThemeName } from "./tokens";
 /* ─── Upload ─── */
 export { BulkUpload } from "./components/bulk-upload";
 export type { BulkUploadResult } from "./components/bulk-upload";
+
+/* ─── Attachments (Phase 19a wires Phase 17b thumbnails) ─── */
+export { AttachmentImage } from "./components/attachment-image";
+export type { AttachmentImageProps } from "./components/attachment-image";
 
 /* ─── Onboarding (Phase 15) ─── */
 export { ChecklistItem } from "./components/checklist-item";

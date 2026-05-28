@@ -417,8 +417,8 @@ PH2-1 produced an extended design (see `docs/decisions/006-addendum-module-call-
 | BUG-007 | medium | JWT re-parsed in 7 services | `services/*/app/dependencies.py` | **closed PH3 / 2026-05-26** | — | Closed via service consolidation (8→4) + shared `eduzim_shared.auth.get_actor_context`. See ADR 014. |
 | BUG-009 | high (correctness) | `return _err(...), 404` tuple silently became 200 OK with a list body. Every 404 / 409 path in academics affected. | `services/academics/app/api/{routes,student_routes}.py` (27 call sites) | **closed Phase 4 / 2026-05-26** | — | Discovered by Q-006 cross-tenant tests. `_err(..., status_code=N)` now returns a real `JSONResponse`. |
 | BUG-010 | high (financial integrity) | SQLite-fallback in `record_payment` silently disabled `with_for_update()` → two concurrent payments could double-spend. | `services/finance/app/services/fees_service.py:record_payment` | **closed Phase 4 / 2026-05-26** | — | Discovered by Q-007 concurrency tests. Added optimistic CAS via SQLAlchemy `Query.update(where paid_amount == observed_paid)` as defence-in-depth; second writer gets `CONCURRENT_WRITE_LOST` and rolls back. |
-| BUG-008 | medium | Migrations in service CMD | `services/auth-service/Dockerfile:21` | todo | Phase 4 | — |
-| BUG-009 | medium | `TYPE_LABELS` not translated | `apps/teacher-web/.../sync-center/page.tsx:58-62` | todo | Phase 11a | — |
+| BUG-008 | medium | Migrations in service CMD | `services/auth-service/Dockerfile:21` (pre-PH2 path) | **closed Phase 2 / 2026-05-26** | — | Closed by service consolidation: the 4 pre-merge service dockerfiles were deleted; the surviving 4 services run `alembic upgrade head` once via the `migrations` container (BUG-008 / INFRA-008 row above in §1.4). The duplicate row here predates the PH2 closeout — kept for ID stability per file conventions, status now reflects reality. |
+| BUG-011 | medium | `TYPE_LABELS` not translated | `apps/teacher-web/.../sync-center/page.tsx:58-62` | todo | Phase 11a | renumbered from duplicate `BUG-009` to keep IDs unique |
 | BUG-010 | medium | No offline roster cache | `apps/teacher-web/.../classes/[id]/page.tsx` + `attendance-tab.tsx` | **closed Phase 11a / 2026-05-26** | — | Closed by T-014: `useCachedApiQuery` paints from IndexedDB-cached roster on mount; `OfflineBadge` surfaces both the live network state and the cache-hit state. 24h TTL. |
 
 ---
@@ -697,6 +697,44 @@ EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activat
 - Catalog pagination once published-row count grows.
 - Dedicated "Publisher" tier for NGO governance separation.
 - OCR (Tesseract), essay auto-grading, JSONB GIN swap, S3 storage backend.
+
+---
+
+## §19 Cleanup & Consolidation (Phase 19)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| C1 | critical | Sidebar nav + ministry sidebar wire every Phase 15-18 page | 19a | ✅ closed 2026-05-28 (`apps/admin-web/src/lib/nav.ts` + `(ministry)/layout.tsx`; new Setup, Curriculum, Question Bank, Templates groups + Ministry Curriculum-import + Templates-catalog entries) |
+| C2 | critical | Teacher template instantiate unbreak — gateway prefix + backend `_has_perm` gate | 19a | ✅ closed 2026-05-28 (`services/api-gateway/app/routes.py` opened `/homework-templates/` + `/lesson-plan-templates/` to `authenticated`; `content_template_routes.py` `publish-school-wide` + `unpublish` handlers assert `school:manage` in-process; 3 new tests in `test_content_templates.py`) |
+| C3 | critical | Identity admin reachable through gateway | 19a | ✅ closed 2026-05-28 (`SERVICE_ROUTES` + 11 RBAC entries for `/users`, `/roles`, `/permissions`, `/preferences`, `/forgot-password`, `/reset-password`) |
+| C4 | critical | LinkButton primitive + migrate 8 `<Button><Link>` sites | 19c | ✅ closed 2026-05-28 (`packages/ui/src/components/link-button.tsx`; renders real `<a>` with button variants; 8 sites migrated; fixes invalid `<button><a>` markup) |
+| C5 | critical | Wire Phase 17b thumbnails — `<AttachmentImage>` primitive | 19a | ✅ closed 2026-05-28 (`packages/ui/src/components/attachment-image.tsx`; lazy-loaded thumbnail with clickthrough to full bytes; exported from `@eduzim/ui`) |
+| C6 | critical | Stop tracking SQLite test artifacts | 19a | ✅ closed 2026-05-28 (18 `test_*.db-shm` + `.db-wal` files `git rm --cached`'d; `.gitignore` was already correct) |
+| H1 | high | Adopt-template race protection (UniqueConstraint + IntegrityError handler) | 19b | ✅ closed 2026-05-28 (Alembic `2026_05_28_024_template_adopt_uniqueness.py`; `(school_id, source_national_template_id)` constraint; race-safe `try/except IntegrityError` returns idempotent existing row) |
+| H2 | high | Visible attachment-clone failure | 19b | ✅ closed 2026-05-28 (`CloneResult` dataclass; `template.instantiated` audit + response payload carry `attachment_clone_error` enum: `disabled_env`/`http_status`/`transport`/`parse`/null) |
+| H3 | high | Warn-once on `EDUZIM_DISABLE_CROSS_SERVICE_HTTP` | 19b | ✅ closed 2026-05-28 (`attachment_client.py`; module-level `_DISABLED_LOGGED` flag; one info log per process when first triggered) |
+| H4 | high | `payment.initiated.manual` audit carries amount | 19b | ✅ closed 2026-05-28 (`services/finance/app/api/payment_config_routes.py:215-222` mirrors peer money-move events per ADR 018) |
+| H5 | high | Teacher-web stale indicator | 19b | ✅ closed 2026-05-28 (`apps/teacher-web/.../curriculum/page.tsx`; yellow `stale` badge + ZIMSEC version line when HoD has pending upgrade) |
+| H7 | high | Invite-landing per-status error UX | 19b | ✅ closed 2026-05-28 (`_friendlyInviteError(status, body)` helper in 3 invite pages; specific copy for 404/410/409/429/5xx) |
+| H8 | high | Identity sentinel UUID aligned with ADR 020 | 19d | ✅ closed 2026-05-28 (`services/identity/app/api/auth.py`; replaced `00000000-…-0` with `eeeeeeee-…-eeeeeeeeeeee`) |
+| H9 | high | Stale STATUS.md / task.md BUG refs + dedup | 19d | ✅ closed 2026-05-28 (STATUS.md §1.4 marks pre-PH2 paths as closed in their actual phase; duplicate `BUG-009` renumbered to `BUG-011`) |
+| M-AUDIT | medium | Audit invariant tightening | 19d | ✅ closed 2026-05-28 (announcement title → title_length; contract role_title dropped; topic_codes deduped) |
+| M-MOBILE | medium | Ministry layout mobile hamburger nav | 19d | ✅ closed 2026-05-28 (`(ministry)/layout.tsx`; sticky `<lg` header + slide-in overlay + dismiss-on-nav-tap) |
+| M-COPY | medium | `/templates/national` page copy fix | 19d | ✅ closed 2026-05-28 ("Ministry & NGO templates" → "National templates catalog" — NGO publisher isn't a Phase 18 concept) |
+| M-SCRIPTS | medium | Stale scripts / Makefile dead-service refs | 19d | ✅ closed 2026-05-28 (`Makefile` `test` target points at 4 surviving services + reporting + gateway; `init-tables.py` marked deprecated with `sys.exit(2)`; `import_master.py` docstring annotates post-PH2 collapse) |
+| A-025 | high | ADR 025 — cleanup & consolidation | 19e | ✅ closed 2026-05-28 (`docs/decisions/025-cleanup-and-consolidation.md`) |
+
+**Gate**: ✅ Every Phase 15-18 admin & Ministry surface now has a sidebar entry. Teachers can instantiate templates (was 403'd by gateway prefix bug). Identity admin reachable through gateway (was direct-port-only — RBAC bypass risk). Phase 17b thumbnails have a primitive consumers can adopt. Two concurrent adopt-template calls converge on one local row. Attachment-clone failure is auditable + recoverable instead of green-checkmark silent. Eight `<button><a>` sites replaced with valid `<a>` markup. Identity uses ADR-020 sentinel. Stale doc/script refs cleaned. Backend regression: **769 tests passing** across 4 services (academics 495 + communications 145 + finance 90 + identity 39).
+
+**Open follow-ups** (Phase 20+):
+- Extract `_meta/_err/_ok/_audit/CROSS_SCHOOL_SENTINEL` into `eduzim_shared.routes` (~2,000 LoC delete).
+- `services/*/tests/conftest.py` shared fixtures (~700 LoC delete).
+- `shared/eduzim_shared/permissions.py` enum + codemod (kills typo-denial).
+- `Subject.national_subject_id` String(36) → UUID normalization.
+- `.env.example` regeneration via grep of `os.environ` calls.
+- Kafka integration test coverage (currently zero — `KAFKA_ENABLED=false` everywhere).
+- Adopt `<AttachmentImage>` into announcement feed + curriculum tree + homework attachment rendering.
+- OCR (Tesseract), S3 storage, essay auto-grading, JSONB GIN swap.
 
 ---
 

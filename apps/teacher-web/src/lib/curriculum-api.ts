@@ -17,6 +17,13 @@ export interface SchoolSubject {
   is_active: boolean;
   grade_levels: string[];
   national_subject_id: string | null;
+  // Phase 17d — versioning fields. The teacher-web only needs to *see*
+  // the staleness; the upgrade button lives on admin-web (gated to
+  // SchoolAdmin per Phase 18a). Surfaced here so teachers know their
+  // HoD has a pending action.
+  adopted_national_version: number | null;
+  national_current_version: number | null;
+  is_stale: boolean;
 }
 
 export interface SchoolUnit {

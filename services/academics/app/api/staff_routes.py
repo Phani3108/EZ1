@@ -373,9 +373,11 @@ def create_contract(
         actor_role=(current_user.get("roles") or [None])[0],
         target={"resource": "employment_contract", "id": c.id,
                 "user_id": str(payload.user_id)},
-        # Band is admin-debuggable; salary amount is NOT logged.
-        details={"role_title": payload.role_title,
-                 "salary_band": payload.salary_band},
+        # Phase 19d audit fix: role_title is free String — admins were
+        # entering "Bursar - Mr. Mhondoro temporary" style values that
+        # leaked PII through the audit log. Band is the only safe
+        # signal here (already documented as admin-debuggable).
+        details={"salary_band": payload.salary_band},
         request_id=getattr(request.state, "request_id", None),
     )
     db.commit()

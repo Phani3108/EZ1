@@ -15,7 +15,7 @@
 
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { useAuth, RouteGuard } from "@eduzim/auth";
@@ -33,6 +33,10 @@ import {
   FileDown,
   Scale,
   LogOut,
+  Library,
+  Upload,
+  Menu,
+  X,
 } from "lucide-react";
 
 interface MinistryNavItem {
@@ -45,6 +49,10 @@ const ministryNav: MinistryNavItem[] = [
   { title: "Overview", href: "/ministry", icon: LayoutDashboard },
   { title: "School onboarding", href: "/ministry/onboarding", icon: ClipboardCheck },
   { title: "National Curriculum", href: "/ministry/curriculum", icon: BookOpen },
+  // Phase 17c — bulk CSV import for ZIMSEC curriculum.
+  { title: "Curriculum import", href: "/ministry/curriculum/import", icon: Upload },
+  // Phase 18b/c — cross-school template catalog.
+  { title: "Templates catalog", href: "/ministry/templates", icon: Library },
   { title: "Geography", href: "/ministry/geography", icon: Map },
   { title: "Enrolment", href: "/ministry/enrolment", icon: Users2 },
   { title: "Attendance", href: "/ministry/attendance", icon: ClipboardCheck },
@@ -65,6 +73,9 @@ export default function MinistryLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { user, logout, hasRole } = useAuth();
+  // Phase 19d — mobile nav state. Before this, the sidebar was
+  // `hidden lg:flex` so Ministry users on phone saw NO nav at all.
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   return (
     <RouteGuard
@@ -83,8 +94,39 @@ export default function MinistryLayout({
           aria-hidden="true"
           className="h-1.5 w-full shrink-0 bg-emerald-700"
         />
+        {/* Phase 19d mobile header — only visible below `lg` since the
+            desktop sidebar always covers nav. Tapping the menu icon
+            opens the same sidebar as an overlay. */}
+        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b bg-card px-4 lg:hidden">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setMobileNavOpen(true)}
+            className="rounded-md p-1 hover:bg-muted"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <Scale className="h-5 w-5 text-emerald-700" />
+          <span className="text-sm font-semibold">Ministry · MoPSE</span>
+        </header>
+
+        {mobileNavOpen && (
+          <div
+            className="fixed inset-0 z-40 bg-black/40 lg:hidden"
+            onClick={() => setMobileNavOpen(false)}
+            aria-hidden="true"
+          />
+        )}
+
         <div className="flex flex-1">
-          <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col border-r bg-card lg:flex">
+          <aside
+            className={cn(
+              "fixed inset-y-0 left-0 z-40 w-64 flex-col border-r bg-card transition-transform lg:flex lg:translate-x-0",
+              mobileNavOpen
+                ? "flex translate-x-0"
+                : "hidden -translate-x-full lg:flex",
+            )}
+          >
             <div className="flex h-14 items-center gap-2 border-b px-4">
               <Scale className="h-6 w-6 text-emerald-700" />
               <div className="flex flex-col leading-tight">
@@ -93,6 +135,14 @@ export default function MinistryLayout({
                   MoPSE · read-only
                 </span>
               </div>
+              <button
+                type="button"
+                aria-label="Close navigation"
+                onClick={() => setMobileNavOpen(false)}
+                className="ml-auto rounded-md p-1 hover:bg-muted lg:hidden"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
             <nav className="flex-1 overflow-y-auto py-2">
               {ministryNav.map((item) => {
@@ -102,6 +152,7 @@ export default function MinistryLayout({
                   <Link
                     key={item.href}
                     href={item.href}
+                    onClick={() => setMobileNavOpen(false)}
                     className={cn(
                       "flex items-center gap-3 px-4 py-2 text-sm transition-colors",
                       active

@@ -14,7 +14,7 @@ import {
   type SchoolSubject,
   type CurriculumTree,
 } from "@/lib/curriculum-api";
-import { Card, CardHeader, CardTitle, CardContent, Button, Alert, AlertTitle, AlertDescription, Badge } from "@eduzim/ui";
+import { Card, CardHeader, CardTitle, CardContent, Button, LinkButton, Alert, AlertTitle, AlertDescription, Badge } from "@eduzim/ui";
 
 export default function CurriculumOverviewPage() {
   const [subjects, setSubjects] = useState<SchoolSubject[]>([]);
@@ -55,12 +55,12 @@ export default function CurriculumOverviewPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline">
-            <Link href="/curriculum/coverage">Coverage</Link>
-          </Button>
-          <Button>
-            <Link href="/curriculum/adopt">Adopt ZIMSEC subject</Link>
-          </Button>
+          <LinkButton variant="outline" href="/curriculum/coverage">
+            Coverage
+          </LinkButton>
+          <LinkButton href="/curriculum/adopt">
+            Adopt ZIMSEC subject
+          </LinkButton>
         </div>
       </div>
 
@@ -133,11 +133,9 @@ export default function CurriculumOverviewPage() {
                       You adopted v{active.adopted_national_version}. Review what the upgrade
                       will change before pulling it in. Custom topics are always preserved.
                     </span>
-                    <Button>
-                      <Link href={`/curriculum/${active.id}/upgrade-preview`}>
-                        Review upgrade
-                      </Link>
-                    </Button>
+                    <LinkButton href={`/curriculum/${active.id}/upgrade-preview`}>
+                      Review upgrade
+                    </LinkButton>
                   </AlertDescription>
                 </Alert>
               );

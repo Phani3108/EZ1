@@ -23,6 +23,10 @@ import {
   ServerCog,
   Map,
   School,
+  BookOpen,
+  HelpCircle,
+  Library,
+  Rocket,
   type LucideIcon,
 } from "lucide-react";
 
@@ -43,6 +47,14 @@ export const adminNav: NavItem[] = [
     permission: "authenticated",
   },
 
+  // ─── Setup wizard (Phase 15) ───
+  {
+    title: "Setup",
+    href: "/setup",
+    icon: Rocket,
+    permission: "school:manage",
+  },
+
   // ─── Academics ───
   {
     title: "Academics",
@@ -54,6 +66,42 @@ export const adminNav: NavItem[] = [
       { title: "Terms", href: "/academics/terms", permission: "authenticated" },
       { title: "Classes", href: "/classes", permission: "authenticated" },
       { title: "Subjects", href: "/subjects", permission: "authenticated" },
+    ],
+  },
+
+  // ─── Curriculum (Phase 16-18) ───
+  {
+    title: "Curriculum",
+    href: "/curriculum",
+    icon: BookOpen,
+    permission: "authenticated",
+    children: [
+      { title: "Overview", href: "/curriculum", permission: "authenticated" },
+      { title: "Coverage", href: "/curriculum/coverage", permission: "school:manage" },
+      { title: "Adopt ZIMSEC", href: "/curriculum/adopt", permission: "school:manage" },
+    ],
+  },
+
+  // ─── Question Bank (Phase 16c) ───
+  {
+    title: "Question Bank",
+    href: "/question-bank/review",
+    icon: HelpCircle,
+    permission: "school:manage",
+    children: [
+      { title: "Pending review", href: "/question-bank/review", permission: "school:manage" },
+    ],
+  },
+
+  // ─── Templates (Phase 16d + 18b) ───
+  {
+    title: "Templates",
+    href: "/templates",
+    icon: Library,
+    permission: "school:manage",
+    children: [
+      { title: "School library", href: "/templates", permission: "school:manage" },
+      { title: "Ministry & NGO catalog", href: "/templates/national", permission: "school:manage" },
     ],
   },
 

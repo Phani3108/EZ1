@@ -15,6 +15,27 @@ import { Card, CardHeader, CardTitle, CardContent, Button, Input, Alert, AlertTi
 const API_BASE =
   process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
+/** Phase 19b H7 — see /invite/[token]/page.tsx in parent-web for the rationale. */
+function _friendlyInviteError(status: number, body: any): string {
+  const code = body?.error?.code as string | undefined;
+  if (status === 404 || code === "NOT_FOUND" || code === "INVALID_TOKEN") {
+    return "This invitation link isn't valid. Ask your school admin to send you a new one.";
+  }
+  if (status === 410 || code === "EXPIRED") {
+    return "This invitation has expired. Ask your school admin to send you a fresh link.";
+  }
+  if (status === 409 || code === "ALREADY_ACTIVATED" || code === "ALREADY_USED") {
+    return "You've already activated this account. Sign in with your password instead.";
+  }
+  if (status === 429 || code === "RATE_LIMITED") {
+    return "Too many attempts — please wait a minute and try again.";
+  }
+  if (status >= 500) {
+    return "Something went wrong on our side. Please try again in a minute.";
+  }
+  return body?.error?.message ?? "Could not process this invitation.";
+}
+
 interface Preview {
   school_id: string;
   role: string;
@@ -38,11 +59,15 @@ export default function TeacherInviteLanding() {
     if (!token) return;
     fetch(`${API_BASE}/api/v1/invitations/${token}/preview`)
       .then(async (r) => {
-        const j = await r.json();
-        if (!r.ok) setError(j?.error?.message ?? "Could not load.");
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) setError(_friendlyInviteError(r.status, j));
         else setPreview(j.data);
       })
-      .catch((e) => setError(String(e)))
+      .catch(() =>
+        setError(
+          "Couldn't reach EduZim — check your internet connection and try again."
+        ),
+      )
       .finally(() => setLoading(false));
   }, [token]);
 
@@ -66,11 +91,11 @@ export default function TeacherInviteLanding() {
           body: JSON.stringify({ password: pwd }),
         },
       );
-      const j = await r.json();
-      if (!r.ok) setError(j?.error?.message ?? "Activation failed.");
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) setError(_friendlyInviteError(r.status, j));
       else router.push("/login?activated=1");
     } catch (e) {
-      setError(String(e));
+      setError("Couldn't reach EduZim — check your internet connection and try again.");
     } finally {
       setSubmitting(false);
     }
