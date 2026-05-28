@@ -19,6 +19,10 @@ from app.models.org import (
 )
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Organisation"])
@@ -28,14 +32,6 @@ CPD_CATEGORIES = {
     "workshop", "course", "conference", "webinar", "other",
 }
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # ─── T-017 HoD assignments ────────────────────────────────────────

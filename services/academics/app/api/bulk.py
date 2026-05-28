@@ -14,6 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_school_id
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.services.student_service import StudentService
 # PH2-7: HttpSchoolServiceClient was the inter-service HTTP client. After
 # PH2-7 the school models live next door (academics_db), so we use the
@@ -24,10 +28,6 @@ from app.events import publish_event
 
 router = APIRouter(tags=["Bulk Operations"])
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", str(uuid.uuid4()))
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _svc(db: Session) -> StudentService:

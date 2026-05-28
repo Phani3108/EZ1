@@ -6,6 +6,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user, get_school_id, require_permission
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.schemas.auth import (
     UserCreate, UserUpdate, PasswordReset,
     RoleCreate, RoleUpdate,
@@ -16,10 +20,6 @@ from app.events import publish_user_created
 
 router = APIRouter(tags=["Users & RBAC"])
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", str(uuid.uuid4()))
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # ───────────────── Users ─────────────────

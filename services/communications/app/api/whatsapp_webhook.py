@@ -24,6 +24,10 @@ from app.config import get_settings
 from app.database import get_db
 from app.models.communication import NotificationOutbox
 from app.models.whatsapp import WhatsAppMessage
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.services.whatsapp_provider import classify_status, utc_now
 
 logger = logging.getLogger(__name__)
@@ -31,13 +35,6 @@ settings = get_settings()
 
 router = APIRouter(tags=["WhatsApp Webhooks"])
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", None) if hasattr(request, "state") else None
-    return {
-        "request_id": rid or str(uuid.uuid4()),
-        "timestamp": datetime.now(timezone.utc).isoformat(),
-    }
 
 
 # ──────────────────────── Verification (GET) ─────────────────────────

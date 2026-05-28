@@ -11,16 +11,16 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models.user import User, PasswordResetToken
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.utils.security import hash_password
 from app.config import get_settings
 
 settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["Password Reset"])
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", str(uuid.uuid4()))
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 class ForgotPasswordRequest(BaseModel):

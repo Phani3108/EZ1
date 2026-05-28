@@ -6,7 +6,6 @@ from datetime import date, datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc
@@ -16,6 +15,10 @@ from app.dependencies import get_current_user, get_school_id
 from app.models.community import PolicyDocument, Sponsor, Sponsorship, Alumnus
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err,
+)
 
 
 router = APIRouter(tags=["Community"])
@@ -32,27 +35,10 @@ SPONSORSHIP_PURPOSES = {
 SPONSORSHIP_STATUSES = {"pending", "active", "completed", "terminated"}
 
 
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
-
 
 def _actor(current_user: dict) -> uuid.UUID:
     return uuid.UUID(str(current_user["sub"]))
 
-
-def _err(code, msg, request, status_code=400):
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
 
 # ─── A-017 — Policy documents ─────────────────────────────────────

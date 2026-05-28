@@ -34,7 +34,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -47,33 +46,16 @@ from app.models.school import Subject
 from app.models.planning import LessonPlan, FormativeAssessment
 from app.models.student_life import Homework
 from app.models.assessment import Assessment
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err, _ok,
+)
 
 
 router = APIRouter(tags=["Curriculum Index"])
 
 
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
-
-def _ok(data, request, status=200):
-    return JSONResponse(status_code=status,
-                        content={"data": data, "meta": _meta(request)})
-
-
-def _err(code, msg, request, status=400):
-    return JSONResponse(
-        status_code=status,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
 
 def _topic_substring(topic_id: str) -> str:

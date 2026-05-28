@@ -33,18 +33,14 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user, get_school_id
 from app.models.audit import AuditLog
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Audit"])
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.get("/fees/audit-log")

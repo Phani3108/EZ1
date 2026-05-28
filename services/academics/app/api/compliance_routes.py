@@ -14,7 +14,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 from sqlalchemy import desc, func
@@ -28,6 +27,10 @@ from app.models.student_life import BehaviorIncident
 from app.models.parent_life import Grievance
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err,
+)
 
 
 router = APIRouter(tags=["Compliance"])
@@ -37,27 +40,10 @@ COMPLIANCE_STATUSES = {"draft", "submitted", "accepted", "rejected"}
 CADENCES = {"quarterly", "termly", "annual", "adhoc"}
 
 
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
-
 
 def _actor(current_user: dict) -> uuid.UUID:
     return uuid.UUID(str(current_user["sub"]))
 
-
-def _err(code, msg, request, status_code=400):
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
 
 def _is_nurse_or_admin(current_user: dict) -> bool:

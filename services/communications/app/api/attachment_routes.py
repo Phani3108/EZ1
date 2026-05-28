@@ -38,6 +38,10 @@ from app.services.storage import get_storage
 from app.services.thumbnails import generate_thumbnail
 from eduzim_shared.audit import record_audit_event
 from app.models.audit import AuditLog
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Attachments"])
@@ -57,14 +61,6 @@ VALID_OWNER_KINDS = {
     "assessment", "question", "topic", "national_topic",
 }
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _verify_owner_exists(

@@ -26,6 +26,10 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.dependencies import get_current_user
 from app.models.user import User, UserPreference
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.schemas.auth import UserPreferencesResponse, UserPreferencesUpdate
 
 
@@ -45,10 +49,6 @@ _ROLE_THEME_TIER: dict[str, str] = {
     "provincial_coordinator": "sovereign",
 }
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", None) or str(uuid.uuid4())
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _default_theme_for_roles(role_names: list[str]) -> str:

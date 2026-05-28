@@ -21,6 +21,10 @@ from app.dependencies import get_current_user, get_school_id
 from app.models.comment_bank import CommentBankPhrase
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Comment Bank"])
@@ -28,14 +32,6 @@ router = APIRouter(tags=["Comment Bank"])
 
 CATEGORIES = {"praise", "improvement", "concern", "behaviour", "effort", "other"}
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _serialize(p: CommentBankPhrase) -> dict:

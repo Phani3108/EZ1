@@ -727,14 +727,38 @@ EduZimOps creates a school → SchoolAdmin invite issued → SchoolAdmin activat
 **Gate**: ✅ Every Phase 15-18 admin & Ministry surface now has a sidebar entry. Teachers can instantiate templates (was 403'd by gateway prefix bug). Identity admin reachable through gateway (was direct-port-only — RBAC bypass risk). Phase 17b thumbnails have a primitive consumers can adopt. Two concurrent adopt-template calls converge on one local row. Attachment-clone failure is auditable + recoverable instead of green-checkmark silent. Eight `<button><a>` sites replaced with valid `<a>` markup. Identity uses ADR-020 sentinel. Stale doc/script refs cleaned. Backend regression: **769 tests passing** across 4 services (academics 495 + communications 145 + finance 90 + identity 39).
 
 **Open follow-ups** (Phase 20+):
-- Extract `_meta/_err/_ok/_audit/CROSS_SCHOOL_SENTINEL` into `eduzim_shared.routes` (~2,000 LoC delete).
-- `services/*/tests/conftest.py` shared fixtures (~700 LoC delete).
-- `shared/eduzim_shared/permissions.py` enum + codemod (kills typo-denial).
-- `Subject.national_subject_id` String(36) → UUID normalization.
-- `.env.example` regeneration via grep of `os.environ` calls.
-- Kafka integration test coverage (currently zero — `KAFKA_ENABLED=false` everywhere).
+- ✅ Extract `_meta/_err/_ok/_audit/CROSS_SCHOOL_SENTINEL` — closed Phase 20a (`shared/eduzim_shared/routes.py`).
+- ✅ `services/*/tests/conftest.py` shared fixtures — closed Phase 20c (additive; per-file duplicates deleted incrementally Phase 21+).
+- ✅ `shared/eduzim_shared/permissions.py` enum + drift guard — closed Phase 20b.
+- ✅ `.env.example` regeneration — closed Phase 20d.
+- `Subject.national_subject_id` String(36) → UUID normalization. Deferred (needs Alembic data migration).
+- Kafka integration test coverage. Deferred (needs Docker-compose harness).
 - Adopt `<AttachmentImage>` into announcement feed + curriculum tree + homework attachment rendering.
 - OCR (Tesseract), S3 storage, essay auto-grading, JSONB GIN swap.
+
+---
+
+## §20 Architectural Cleanup (Phase 20)
+
+| ID | Importance | Title | Phase | Status |
+|---|---|---|---|---|
+| SH-001 | high | `shared/eduzim_shared/routes.py` — shared `_meta`/`_err`/`_ok` + `make_audit_helper` + `CROSS_SCHOOL_SENTINEL` | 20a | ✅ closed 2026-05-28 (32 routes files migrated; **−380 net LoC**; `_err` accepts both `status=` + `status_code=` keywords; `_audit` closure coerces str→UUID and fixes latent audit-write bug) |
+| SH-002 | high | Migration script `/tmp/migrate_routes_helpers.py` (one-shot) | 20a | ✅ closed 2026-05-28 (32 files migrated cleanly; 8 files with non-standard `_err` signatures skipped and deferred to Phase 21) |
+| PE-001 | high | `shared/eduzim_shared/permissions.py` — `Perm` enum + `all_known()` + drift-guard test | 20b | ✅ closed 2026-05-28 (19 known permissions; `Perm` is `str, Enum` so existing `in user_perms` checks keep working; new test `test_gateway_rbac_table_uses_only_known_permissions` reads `routes.py` at test time and catches new permission strings added without enum updates) |
+| CF-001 | medium | Per-service `tests/conftest.py` (academics + identity + finance + communications) | 20c | ✅ closed 2026-05-28 (additive — pytest fixture-resolution rule keeps existing per-file fixtures taking precedence; foundation for Phase 21 codemod that deletes duplicates one file at a time) |
+| ENV-001 | medium | `.env.example` regeneration via `grep os.environ` sweep | 20d | ✅ closed 2026-05-28 (every var code reads is documented; grouped REQUIRED/optional; includes the ≥11 Phase 19 audit flagged missing) |
+| A-026 | high | ADR 026 — architectural cleanup | 20e | ✅ closed 2026-05-28 (`docs/decisions/026-architectural-cleanup.md`) |
+
+**Gate**: ✅ All 4 services still green after the migration. Backend regression: **887 tests passing** (academics 495 + communications 145 + finance 90 + identity 39 + shared 118 — the 7 new are `test_permissions.py` including the gateway-RBAC drift guard). The shared helpers are imported and used; the duplicates are deleted. New `Perm` enum guards against typo-denial. New conftest.py per service. `.env.example` is complete.
+
+**Open follow-ups** (Phase 21+):
+- Codemod gateway routes + per-service handlers to use `Perm.*` instead of raw strings.
+- Codemod-delete per-file `engine_and_session` + `client` fixtures (let conftest take over).
+- Migrate the 8 routes files with non-standard `_err` signatures (`bulk_*`, `drafts.py`, etc.).
+- `Subject.national_subject_id` String(36) → UUID normalization (Alembic data migration).
+- Kafka integration test coverage (Docker-compose test harness).
+- Adopt `<AttachmentImage>` across the three apps.
+- S3 storage backend implementation, OCR (Tesseract), essay auto-grading, JSONB GIN swap — feature work, separate ADRs each.
 
 ---
 

@@ -39,16 +39,16 @@ from app.dependencies import get_current_user, get_school_id
 from app.config import get_settings
 from app.models.fees import PaymentTransaction
 from app.models.idempotency import IdempotencyKey
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from eduzim_shared.idempotency import DbIdempotencyStore
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 router = APIRouter(tags=["Payments"])
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", str(uuid.uuid4()))
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _err(request: Request, status_code: int, code: str, message: str, **details):

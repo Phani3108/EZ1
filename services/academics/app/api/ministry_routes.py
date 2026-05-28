@@ -35,7 +35,6 @@ from datetime import date, datetime, timezone, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy import func, case, distinct
 from sqlalchemy.orm import Session
 
@@ -53,6 +52,10 @@ from app.models.compliance import (
 from app.models.community import Sponsorship, Sponsor
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err, _ok, CROSS_SCHOOL_SENTINEL,
+)
 from eduzim_shared.auth import ActorContext
 
 
@@ -71,26 +74,7 @@ VALID_SCOPES = {"district", "province", "national"}
 # All-zeros UUID is deliberately avoided here — it round-trips poorly
 # through some sqlalchemy/sqlite stacks (the column value can come back
 # as integer 0 rather than the UUID, breaking uuid.UUID(hex=…)).
-CROSS_SCHOOL_SENTINEL = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
-
-
-def _err(code: str, msg: str, request: Request, status_code: int = 400):
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
 
 def _ok(data, request: Request):

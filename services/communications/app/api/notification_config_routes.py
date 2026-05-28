@@ -22,18 +22,14 @@ from app.providers import (
     NotificationProviderError,
 )
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Notification Config"])
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _ser_config(c: SchoolNotificationConfig) -> dict:

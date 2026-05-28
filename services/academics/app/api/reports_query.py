@@ -40,6 +40,10 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.database import get_db
 from app.dependencies import get_current_user, get_school_id
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 from app.reporting_db import get_reporting_db
 from app.services.reports.dropout_data import (
     LOOKBACK_DAYS,
@@ -58,14 +62,6 @@ router = APIRouter(tags=["Reports"])
 
 settings = get_settings()
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _extract_token(request: Request) -> str:

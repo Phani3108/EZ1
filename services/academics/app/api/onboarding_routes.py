@@ -38,7 +38,6 @@ from datetime import date, datetime, timezone, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 
@@ -52,33 +51,16 @@ from app.models.attendance import AttendanceRecord
 from app.models.onboarding import InviteRequest
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err, _ok,
+)
 
 
 router = APIRouter(tags=["Onboarding"])
 
 
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
-
-def _err(code, msg, request, status=400):
-    return JSONResponse(
-        status_code=status,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
-
-
-def _ok(data, request, status=200):
-    return JSONResponse(status_code=status,
-                        content={"data": data, "meta": _meta(request)})
 
 
 def _actor(current_user) -> uuid.UUID:

@@ -42,7 +42,6 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional, List, Literal
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -56,33 +55,18 @@ from app.models.planning import LessonPlan
 from app.models.audit import AuditLog
 from app.services.attachment_client import clone_attachments_for_owner
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err, _ok, make_audit_helper,
+)
 
 
 router = APIRouter(tags=["Content Templates"])
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
+_audit = make_audit_helper(AuditLog)
 
 
-def _err(code, msg, request, status=400):
-    return JSONResponse(
-        status_code=status,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
-
-def _ok(data, request, status=200):
-    return JSONResponse(status_code=status,
-                        content={"data": data, "meta": _meta(request)})
 
 
 def _actor(current_user) -> str:
@@ -106,23 +90,6 @@ def _has_perm(current_user, perm: str) -> bool:
     perms = current_user.get("permissions") if hasattr(current_user, "get") else None
     return bool(perms) and perm in perms
 
-
-def _audit(db: Session, request: Request, *,
-           event_type: str, school_id: str, actor: str,
-           target: dict, details: Optional[dict] = None):
-    request_id = getattr(request.state, "request_id", None) if hasattr(request, "state") else None
-    try:
-        record_audit_event(
-            db, AuditLog,
-            event_type=event_type,
-            school_id=uuid.UUID(school_id),
-            actor_user_id=uuid.UUID(actor),
-            target=target,
-            details=details or {},
-            request_id=request_id,
-        )
-    except Exception:
-        pass
 
 
 # ─── Serialisers ──────────────────────────────────────────────────

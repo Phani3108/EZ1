@@ -28,15 +28,15 @@ from sqlalchemy import text
 
 from app.config import get_settings
 from app.database import SessionLocal
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(prefix="/internal/diagnostics", tags=["Diagnostics (internal)"])
 settings = get_settings()
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", None) or str(uuid.uuid4())
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 # ─── Database ───

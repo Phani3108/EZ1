@@ -18,7 +18,6 @@ from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -27,32 +26,17 @@ from app.dependencies import get_current_user
 from app.models.fees import Invoice
 from app.models.audit import AuditLog
 from eduzim_shared.audit import record_audit_event
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, _err, _ok, CROSS_SCHOOL_SENTINEL,
+)
 from eduzim_shared.auth import ActorContext
 
 
 router = APIRouter(tags=["Ministry — Finance"])
 
 
-CROSS_SCHOOL_SENTINEL = uuid.UUID("eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee")
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
-
-
-def _err(code: str, msg: str, request: Request, status_code: int = 400):
-    return JSONResponse(
-        status_code=status_code,
-        content={"error": {
-            "code": code, "message": msg, "details": {},
-            "request_id": _meta(request)["request_id"],
-        }},
-    )
 
 
 def _ok(data, request: Request):

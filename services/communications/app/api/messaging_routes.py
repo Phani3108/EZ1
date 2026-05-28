@@ -32,18 +32,14 @@ from app.services.messaging_service import (
 from app.models.messaging import MessageThread, Message
 from eduzim_shared.audit import record_audit_event
 from app.models.audit import AuditLog
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta,
+)
 
 
 router = APIRouter(tags=["Messaging"])
 
-
-def _meta(request: Request) -> dict:
-    rid = (
-        getattr(request.state, "request_id", str(uuid.uuid4()))
-        if hasattr(request, "state")
-        else str(uuid.uuid4())
-    )
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 def _sender_role_from_user(current_user: dict) -> str:

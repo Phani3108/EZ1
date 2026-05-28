@@ -7,6 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.dependencies import get_current_user
+# Phase 20a — shared route helpers.
+from eduzim_shared.routes import (
+    _meta, CROSS_SCHOOL_SENTINEL,
+)
 from app.schemas.auth import LoginRequest, RefreshRequest
 from app.services.auth_service import AuthService
 # Phase 9 follow-up — security-event audit (login success / failure / logout).
@@ -37,10 +41,6 @@ def _audit_school_id(school_id_str: str | None) -> uuid.UUID:
     except (TypeError, ValueError):
         return _CROSS_SCHOOL_SENTINEL
 
-
-def _meta(request: Request) -> dict:
-    rid = getattr(request.state, "request_id", str(uuid.uuid4()))
-    return {"request_id": rid, "timestamp": datetime.now(timezone.utc).isoformat()}
 
 
 @router.post("/login")
