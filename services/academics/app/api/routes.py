@@ -80,11 +80,13 @@ class TermUpdate(BaseModel):
 class ClassCreate(BaseModel):
     name: str = Field(..., max_length=100)
     section: str = Field("A", max_length=20)
+    grade_level: Optional[int] = None
     capacity: Optional[int] = None
 
 class ClassUpdate(BaseModel):
     name: Optional[str] = None
     section: Optional[str] = None
+    grade_level: Optional[int] = None
     capacity: Optional[int] = None
 
 class SubjectCreate(BaseModel):
@@ -223,7 +225,8 @@ def create_class(data: ClassCreate, request: Request,
                  current_user: dict = Depends(get_current_user),
                  school_id: uuid.UUID = Depends(get_school_id)):
     svc = SchoolService(db)
-    result = svc.create_class(school_id, data.name, data.section, data.capacity)
+    result = svc.create_class(school_id, data.name, data.section,
+                              data.capacity, data.grade_level)
     if "error" in result:
         return _err(result["error"], result["message"], request, status_code=409)
     publish_event("eduzim.school.class.created.v1", result["id"], result,
@@ -250,7 +253,8 @@ def update_class(class_id: uuid.UUID, data: ClassUpdate, request: Request,
                  current_user: dict = Depends(get_current_user),
                  school_id: uuid.UUID = Depends(get_school_id)):
     svc = SchoolService(db)
-    result = svc.update_class(class_id, school_id, data.name, data.section, data.capacity)
+    result = svc.update_class(class_id, school_id, data.name, data.section,
+                              data.capacity, data.grade_level)
     if result is None:
         return _err("NOT_FOUND", "Class not found", request, status_code=404)
     if "error" in result:

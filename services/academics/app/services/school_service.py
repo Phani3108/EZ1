@@ -236,7 +236,8 @@ class SchoolService:
     # ───────────── Class ─────────────
 
     def create_class(self, school_id: uuid.UUID, name: str,
-                     section: str = "A", capacity: int = None) -> dict:
+                     section: str = "A", capacity: int = None,
+                     grade_level: int = None) -> dict:
         existing = self.db.query(Class).filter(
             Class.school_id == school_id,
             Class.name == name,
@@ -246,7 +247,8 @@ class SchoolService:
             return {"error": "DUPLICATE_CLASS",
                     "message": f"Class '{name}' section '{section}' already exists"}
 
-        cls = Class(school_id=school_id, name=name, section=section, capacity=capacity)
+        cls = Class(school_id=school_id, name=name, section=section,
+                    capacity=capacity, grade_level=grade_level)
         self.db.add(cls)
         self.db.commit()
         self.db.refresh(cls)
@@ -264,7 +266,7 @@ class SchoolService:
 
     def update_class(self, class_id: uuid.UUID, school_id: uuid.UUID,
                      name: str = None, section: str = None,
-                     capacity: int = None) -> Optional[dict]:
+                     capacity: int = None, grade_level: int = None) -> Optional[dict]:
         cls = self.db.query(Class).filter(
             Class.id == class_id, Class.school_id == school_id,
         ).first()
@@ -292,6 +294,8 @@ class SchoolService:
             cls.section = section
         if capacity is not None:
             cls.capacity = capacity
+        if grade_level is not None:
+            cls.grade_level = grade_level
 
         self.db.commit()
         self.db.refresh(cls)
@@ -584,6 +588,7 @@ class SchoolService:
     def _ser_class(self, c: Class) -> dict:
         return {"id": str(c.id), "school_id": str(c.school_id),
                 "name": c.name, "section": c.section,
+                "grade_level": c.grade_level,
                 "capacity": c.capacity, "is_active": c.is_active,
                 "created_at": c.created_at.isoformat() if c.created_at else None}
 

@@ -143,6 +143,10 @@ class Class(Base):
     school_id = Column(UUID(as_uuid=True), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     section = Column(String(20), nullable=False, default="A")
+    # Grade/Form number (e.g. 1 for Form 1). Nullable so existing rows and
+    # grade-agnostic classes stay valid; the admin-web create form already
+    # collects this value (it was previously accepted and silently dropped).
+    grade_level = Column(Integer, nullable=True)
     capacity = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

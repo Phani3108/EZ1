@@ -59,6 +59,11 @@ services:
       DB_PASSWORD: eduzim_secret
       DB_HOST: postgres
       DB_PORT: 5432
+      # edoburu/pgbouncer:latest (1.25.x) listens on 5432 by default.
+      # All services + the 6432:6432 port mapping expect 6432, so pin the
+      # pooler's listen port explicitly. (Regressed when the image was
+      # un-pinned from v1.23.1, which defaulted to 6432.)
+      LISTEN_PORT: 6432
       # `*` means: pgbouncer accepts connections to ANY dbname and
       # proxies to postgres at the same dbname. Equivalent to listing
       # auth_db/academics_db/fees_db/comms_db/reporting_db one-by-one.
@@ -70,9 +75,10 @@ services:
       RESERVE_POOL_TIMEOUT: 3
       SERVER_RESET_QUERY: "DISCARD ALL"
       # Allow auth via the same eduzim user; pgbouncer authenticates
-      # against postgres directly. AUTH_TYPE=md5 keeps the upstream
-      # password hashed on disk; in prod swap for scram-sha-256.
-      AUTH_TYPE: md5
+      # against postgres directly. Postgres 16 stores passwords as
+      # scram-sha-256, so the pooler MUST use the same method or it fails
+      # with "wrong password type".
+      AUTH_TYPE: scram-sha-256
     ports:
       - "6432:6432"
     depends_on:

@@ -1,6 +1,6 @@
 /**
  * Admin Login Page
- * Credentials: admin@eduzim.com / 123456
+ * Credentials: admin@school.ac.zw / secureP@ss1 (seeded by scripts/dev-seed.sh)
  */
 
 "use client";
@@ -50,7 +50,7 @@ export default function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "admin@eduzim.com", password: "123456" },
+    defaultValues: { email: "admin@school.ac.zw", password: "secureP@ss1" },
   });
 
   const onSubmit = async (values: LoginForm) => {
@@ -118,7 +118,7 @@ export default function LoginPage() {
                   type="email"
                   autoComplete="email"
                   className="block w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 text-sm text-gray-900 placeholder-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  placeholder="admin@eduzim.com"
+                  placeholder="admin@school.ac.zw"
                 />
                 {errors.email && (
                   <p className="mt-1 text-xs text-red-600">{errors.email.message}</p>
@@ -190,9 +190,9 @@ export default function LoginPage() {
             {/* Demo credentials hint */}
             <div className="mt-6 rounded-lg bg-blue-50 px-4 py-3 text-xs text-blue-700">
               <p className="font-semibold mb-1">Demo credentials</p>
-              <p>Admin: <span className="font-mono">admin@eduzim.com</span> / <span className="font-mono">123456</span></p>
-              <p>Teacher: <span className="font-mono">teacher@eduzim.com</span> / <span className="font-mono">123456</span></p>
-              <p>Parent: <span className="font-mono">parent@eduzim.com</span> / <span className="font-mono">123456</span></p>
+              <p>Admin: <span className="font-mono">admin@school.ac.zw</span> / <span className="font-mono">secureP@ss1</span></p>
+              <p>Teacher: <span className="font-mono">teacher@eduzim.zw</span> / <span className="font-mono">teacher123</span></p>
+              <p>Parent: <span className="font-mono">parent@school.ac.zw</span> / <span className="font-mono">secureP@ss1</span></p>
             </div>
           </div>
 

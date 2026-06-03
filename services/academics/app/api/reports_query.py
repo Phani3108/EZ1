@@ -78,10 +78,22 @@ def _extract_token(request: Request) -> str:
 def dashboard(
     request: Request,
     rdb: Session = Depends(get_reporting_db),
+    db: Session = Depends(get_db),
     school_id: uuid.UUID = Depends(get_school_id),
 ):
     svc = ReportingQueryService(rdb)
-    return {"data": svc.get_dashboard(school_id), "meta": _meta(request)}
+    data = svc.get_dashboard(school_id)
+    # The projection has no class-count column, so get_dashboard() returns a
+    # rough estimate (enrollments // 10 + 1). Academics OWNS the classes
+    # table, so replace it with the real active-class count — accurate and
+    # free (no extra projection/migration needed).
+    from app.models.school import Class
+    data["total_classes"] = (
+        db.query(Class)
+        .filter(Class.school_id == school_id, Class.is_active.is_(True))
+        .count()
+    )
+    return {"data": data, "meta": _meta(request)}
 
 
 @router.get("/reports/attendance/trend")
